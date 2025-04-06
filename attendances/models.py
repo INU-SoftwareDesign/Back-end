@@ -7,3 +7,6 @@ class Attendance(models.Model):
     date = models.DateField()
     status = models.CharField(max_length=10)
     note = models.CharField(max_length=255, blank=True, null=True)
+
+    def __str__(self):
+        return self.student
