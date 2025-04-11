@@ -1,33 +1,14 @@
-from rest_framework import generics, status
-from rest_framework.response import Response
+from rest_framework import generics
 from .models import Attendance
-from .serializers import AttendanceSerializer, AttendanceListSerializer
-from students.models import Student
-from django.shortcuts import get_object_or_404
+from .serializers import AttendanceSerializer
 
-class AttendanceView(generics.CreateAPIView):
-    queryset = Attendance.objects.all()
+class AttendanceView(generics.ListCreateAPIView):
     serializer_class = AttendanceSerializer
 
-    def get(self, request):
-        student_id = request.query_params.get('student_id')
-        student = get_object_or_404(Student, id=student_id)
-        attendances = Attendance.objects.filter(student=student).order_by('date')
-        data = {
-            "student_id": student.id,
-            "student_name": student.user.name,
-            "attendances": [
-                {
-                    "id": a.id,
-                    "date": a.date,
-                    "status": a.status,
-                    "note": a.note
-                }
-                for a in attendances
-            ]
-        }
-        return Response(data)
+    def get_queryset(self):
+        student_id = self.request.query_params.get('student_id')
+        return Attendance.objects.filter(student_id=student_id).select_related('student__user')
 
 class AttendanceDetailView(generics.RetrieveUpdateAPIView):
-    queryset = Attendance.objects.all()
+    queryset = Attendance.objects.select_related('student__user')
     serializer_class = AttendanceSerializer
