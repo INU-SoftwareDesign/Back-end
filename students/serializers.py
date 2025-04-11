@@ -29,7 +29,17 @@ class StudentListSerializer(serializers.ModelSerializer):
 class StudentDetailSerializer(serializers.ModelSerializer):
     user = UserDetailSerializer(read_only=True)
     classroom = ClassroomSerializer(read_only=True)
+    classroom_id = serializers.PrimaryKeyRelatedField(
+        queryset=Classroom.objects.all(),
+        source='classroom',
+        write_only=True,
+        required=False
+    )
 
     class Meta:
         model = Student
-        fields = ['id', 'user', 'student_number', 'special_note', 'classroom']
+        fields = [
+            'id', 'user',
+            'student_number', 'special_note',
+            'classroom', 'classroom_id'
+        ]
