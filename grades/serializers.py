@@ -1,26 +1,26 @@
 from rest_framework import serializers
-from .models import Grade
-from subjects.models import Subject
+from .models import GradeGroup, Grade
+from students.models import Student
 
-class GradeSerializer(serializers.ModelSerializer):
-    subject = serializers.CharField(source='subject.name', read_only=True)
-    subject_id = serializers.IntegerField(write_only=True)
-    grade_letter = serializers.SerializerMethodField()
+class GradeStudentStatusSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField(source='user.name')
+    studentId = serializers.CharField(source='student_id')
+    grade = serializers.SerializerMethodField()
+    class_ = serializers.SerializerMethodField()
+    number = serializers.IntegerField(source='student_number')
+    profileImage = serializers.URLField(source='profile_image')
+    gradeStatus = serializers.CharField()
 
-    class Meta:
-        model = Grade
-        fields = ['id', 'subject', 'subject_id', 'semester', 'score', 'grade_letter']
+    def get_grade(self, obj):
+        return obj.classroom.grade if obj.classroom else None
 
-    def get_grade_letter(self, obj):
-        score = obj.score
-        if score >= 90:
-            return "A"
-        elif score >= 80:
-            return "B"
-        elif score >= 70:
-            return "C"
-        elif score >= 60:
-            return "D"
-        else:
-            return "F"
+    def get_class_(self, obj):
+        return obj.classroom.class_number if obj.classroom else None
 
+class GradeInputSerializer(serializers.Serializer):
+    grade = serializers.CharField()
+    semester = serializers.CharField()
+    gradeStatus = serializers.ChoiceField(choices=['입력완료', '임시저장', '미입력'])
+    updatedAt = serializers.DateTimeField()
+    subjects = serializers.ListField(child=serializers.DictField())
