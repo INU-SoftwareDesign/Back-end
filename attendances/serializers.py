@@ -1,27 +1,43 @@
 from rest_framework import serializers
-from .models import Attendance
+from .models import AttendanceRecord, AttendanceSummary
 from students.models import Student
 
-class StudentSimpleSerializer(serializers.ModelSerializer):
-    name = serializers.CharField(source='user.name', read_only=True)
-    
-    class Meta:
-        model = Student
-        fields = ['id', 'name']
+class AttendanceDetailSerializer(serializers.Serializer):
+    date = serializers.DateField()
+    reason = serializers.CharField()
 
-class AttendanceSerializer(serializers.ModelSerializer):
-    student = StudentSimpleSerializer(read_only=True)
-    student_id = serializers.PrimaryKeyRelatedField(
-        queryset=Student.objects.all(),
-        source='student',
-        write_only=True
-    )
+class AttendanceTypeDetailSerializer(serializers.Serializer):
+    illness = AttendanceDetailSerializer(many=True)
+    unauthorized = AttendanceDetailSerializer(many=True)
+    etc = AttendanceDetailSerializer(many=True)
 
-    class Meta:
-        model = Attendance
-        fields = ['id', 'student', 'student_id', 'date', 'status', 'note']
+class AttendanceGroupSerializer(serializers.Serializer):
+    absence = AttendanceTypeDetailSerializer()
+    lateness = AttendanceTypeDetailSerializer()
+    earlyLeave = AttendanceTypeDetailSerializer()
+    result = AttendanceTypeDetailSerializer()
 
-class AttendanceListSerializer(serializers.Serializer):
-    student_id = serializers.IntegerField()
-    student_name = serializers.CharField()
-    attendances = serializers.ListField(child=serializers.DictField())
+class AttendanceStatSerializer(serializers.Serializer):
+    illness = serializers.IntegerField()
+    unauthorized = serializers.IntegerField()
+    etc = serializers.IntegerField()
+
+class AttendanceTypeStatSerializer(serializers.Serializer):
+    absence = AttendanceStatSerializer()
+    lateness = AttendanceStatSerializer()
+    earlyLeave = AttendanceStatSerializer()
+    result = AttendanceStatSerializer()
+
+class AttendanceResponseSerializer(serializers.Serializer):
+    grade = serializers.CharField()
+    year = serializers.IntegerField()
+    homeTeacher = serializers.CharField(allow_null=True)
+    totalDays = serializers.IntegerField()
+    remarks = serializers.CharField(allow_null=True)
+    attendance = AttendanceTypeStatSerializer()
+    details = AttendanceGroupSerializer()
+
+class AttendanceListResponseSerializer(serializers.Serializer):
+    studentId = serializers.IntegerField()
+    studentName = serializers.CharField()
+    attendance = AttendanceResponseSerializer(many=True)
