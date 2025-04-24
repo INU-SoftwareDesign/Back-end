@@ -11,3 +11,5 @@ class User(AbstractUser):
     role = models.CharField(max_length=10, choices=ROLE_CHOICES)
     name = models.CharField(max_length=100)
     phone = models.CharField(max_length=20)
+    birth_date = models.DateField(blank=True, null=True)
+    address = models.CharField(max_length=255, blank=True, null=True)
