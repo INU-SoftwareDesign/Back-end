@@ -42,7 +42,7 @@ class AttendanceView(APIView):
             attendance_data.append({
                 "grade": summary.grade,
                 "year": summary.year,
-                "homeTeacher": summary.home_teacher.username if summary.home_teacher else None,
+                "homeTeacher": summary.home_teacher,
                 "totalDays": summary.total_days,
                 "remarks": summary.remarks,
                 "attendance": stat,
@@ -68,7 +68,8 @@ class AttendanceView(APIView):
             year=data["year"],
             defaults={
                 "total_days": 0,
-                "remarks": ""
+                "remarks": "",
+                "home_teacher": data.get("homeTeacher", "")
             }
         )
 

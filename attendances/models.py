@@ -31,7 +31,7 @@ class AttendanceSummary(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
     grade = models.CharField(max_length=10)
     year = models.IntegerField()
-    home_teacher = models.ForeignKey(Teacher, on_delete=models.SET_NULL, null=True, blank=True)
+    home_teacher = models.CharField(max_length=50)
     total_days = models.IntegerField(default=0)
     remarks = models.CharField(max_length=255, blank=True, null=True)
 
