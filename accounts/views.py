@@ -162,6 +162,63 @@ class ChangePasswordView(APIView):
 
         return Response({"message": "Password changed successfully"}, status=200)
 
-class UserUpdateView(generics.RetrieveUpdateAPIView):
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
+class UserProfileView(generics.RetrieveUpdateAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = None
+    
+    def get_object(self):
+        return self.request.user
+
+    def get(self, request):
+        user = request.user
+        data = {
+            "id": user.username,
+            "username": user.username,
+            "role": user.role,
+            "name": user.name,
+            "email": user.email,
+            "phone": user.phone,
+            "birth_date": user.birth_date,
+            "address": user.address,
+        }
+
+        if user.role == "teacher":
+            teacher = Teacher.objects.get(user=user)
+            classroom = Classroom.objects.filter(teacher=teacher).first()
+            data.update({
+                "grade": classroom.grade if classroom else None,
+                "class": classroom.class_number if classroom else None,
+                "subjects": list(Subject.objects.filter(teacher=teacher).values_list("name", flat=True)),
+                "teacherCode": teacher.teacher_code
+            })
+
+        elif user.role == "student":
+            student = Student.objects.get(user=user)
+            classroom = student.classroom
+            data.update({
+                "grade": classroom.grade if classroom else None,
+                "class": classroom.class_number if classroom else None,
+                "number": student.student_number,
+                "studentId": student.student_id
+            })
+
+        elif user.role == "parent":
+            parent_relation = ParentStudent.objects.filter(parent__user=user).first()
+            if parent_relation:
+                student = parent_relation.student
+                classroom = student.classroom
+                data.update({
+                    "childStudentId": student.student_id,
+                    "relationship": parent_relation.role,
+                })
+
+        return Response(data)
+
+    def put(self, request):
+        user = request.user
+        allowed_fields = ['name', 'email', 'phone', 'birth_date', 'address']
+        for field in allowed_fields:
+            if field in request.data:
+                setattr(user, field, request.data[field])
+        user.save()
+        return Response({"message": "profile updated successfully"})
