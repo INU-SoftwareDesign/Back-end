@@ -13,6 +13,12 @@ class User(AbstractUser):
     birth_date = models.DateField(blank=True, null=True)
     address = models.CharField(max_length=255, blank=True, null=True)
 
+    social_type = models.CharField(
+        max_length=10, choices=[('kakao', 'Kakao'), ('google', 'Google'), ('naver', 'Naver')],
+        blank=True, null=True
+    )
+    social_id = models.CharField(max_length=100, blank=True, null=True, unique=True)
+
     is_active = models.BooleanField(default=False)
     approval_status = models.CharField(
         max_length=10,
