@@ -7,8 +7,11 @@ from students.models import Student
 from .serializers import AttendanceListResponseSerializer
 from django.db.models import Q
 from collections import defaultdict
+from rest_framework.permissions import IsAuthenticated
 
 class AttendanceView(APIView):
+    permission_classes = [IsAuthenticated]
+    
     def get(self, request, student_id):
         grade = request.GET.get("grade")
         year = request.GET.get("year")

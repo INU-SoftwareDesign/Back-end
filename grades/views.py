@@ -7,8 +7,11 @@ from classrooms.models import Classroom
 from .serializers import GradeStudentStatusSerializer, GradeInputSerializer
 from django.shortcuts import get_object_or_404
 from datetime import datetime
+from rest_framework.permissions import IsAuthenticated
 
 class GradeManagementStatusView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         grade = request.query_params.get("grade")
         class_ = request.query_params.get("class")
@@ -39,6 +42,8 @@ class GradeManagementStatusView(APIView):
         })
 
 class GradeUpdateView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def post(self, request, student_id):
         student = get_object_or_404(Student, id=student_id)
         serializer = GradeInputSerializer(data=request.data)
@@ -106,6 +111,8 @@ class GradeUpdateView(APIView):
         return subject.id
 
 class GradeOverviewView(APIView):
+    permission_classes = [IsAuthenticated]
+    
     def get(self, request, student_id):
         grade = request.query_params.get("grade")
         semester = request.query_params.get("semester")

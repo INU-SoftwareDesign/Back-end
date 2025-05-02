@@ -3,8 +3,10 @@ from rest_framework.response import Response
 from rest_framework import status
 from .models import Student
 from .serializers import StudentListSerializer, StudentDetailSerializer, StudentUpdateSerializer
+from rest_framework.permissions import IsAuthenticated
 
 class StudentListView(ListAPIView):
+    permission_classes = [IsAuthenticated]
     serializer_class = StudentListSerializer
 
     def get_queryset(self):
@@ -25,6 +27,7 @@ class StudentListView(ListAPIView):
 
 
 class StudentDetailView(RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAuthenticated]
     queryset = Student.objects.select_related('user', 'classroom').prefetch_related(
         'history', 'academic_records', 'parentstudent_set__parent__user'
     )
