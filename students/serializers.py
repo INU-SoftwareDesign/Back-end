@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from .models import Student, StudentClassHistory, StudentAcademicRecord
-from consultations.models import Consultation
+from consultations.models import Counseling
 from parents.models import ParentStudent
 
 class StudentListSerializer(serializers.ModelSerializer):
@@ -23,8 +23,8 @@ class StudentListSerializer(serializers.ModelSerializer):
         return obj.classroom.class_number if obj.classroom else None
 
     def get_recentCounselingDate(self, obj):
-        latest = Consultation.objects.filter(student=obj).order_by('-date').first()
-        return latest.date if latest else None
+        latest = Counseling.objects.filter(student=obj).order_by('-counseling_date').first()
+        return latest.counseling_date if latest else None
 
 
 class StudentClassHistorySerializer(serializers.ModelSerializer):
