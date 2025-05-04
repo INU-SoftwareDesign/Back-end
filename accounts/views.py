@@ -114,7 +114,7 @@ class LoginView(APIView):
                 "grade": classroom.grade if classroom else None,
                 "class": classroom.class_number if classroom else None,
                 "number": student.student_number,
-                "childStudentId": student.student_id
+                "studentId": student.student_id
             })
 
         elif user.role == "parent":
