@@ -5,4 +5,5 @@ urlpatterns = [
     path('management-status', views.GradeManagementStatusView.as_view(), name='grade-management-status'),
     path('students/<int:student_id>/overview', views.GradeOverviewView.as_view(), name='grade-overview'),
     path('students/<int:student_id>', views.GradeUpdateView.as_view(), name='grade-update'),
+    path('input-period', views.GradeInputPeriodView.as_view(), name='grade-input-period'),
 ]

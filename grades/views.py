@@ -129,8 +129,6 @@ class GradeOverviewView(APIView):
             return Response({"error": "성적 정보가 없습니다."}, status=404)
 
         grades = grade_group.grades.select_related('subject')
-
-        total_students = Student.objects.filter(classroom=student.classroom).count()
         subject_results = []
         total_credits = 0
         weighted_total_score = 0
@@ -151,14 +149,24 @@ class GradeOverviewView(APIView):
             rank = sum(1 for s in all_scores if s > total_score) + 1
             percentile = rank / len(all_scores)
 
-            if percentile <= 0.1:
+            if percentile <= 0.04:
                 grade_level = 1
-            elif percentile <= 0.3:
+            elif percentile <= 0.11:
                 grade_level = 2
-            elif percentile <= 0.6:
+            elif percentile <= 0.23:
                 grade_level = 3
-            else:
+            elif percentile <= 0.40:
                 grade_level = 4
+            elif percentile <= 0.60:
+                grade_level = 5
+            elif percentile <= 0.77:
+                grade_level = 6
+            elif percentile <= 0.89:
+                grade_level = 7
+            elif percentile <= 0.96:
+                grade_level = 8
+            else:
+                grade_level = 9
 
             subject_results.append({
                 "name": subject_name,
@@ -182,14 +190,21 @@ class GradeOverviewView(APIView):
         converted_grade = round(weighted_grade_sum / total_credits, 2)
 
         all_totals = []
-        for g in GradeGroup.objects.filter(grade=grade_group.grade, semester=grade_group.semester):
-            g_total = sum(gr.total_score * gr.credits for gr in g.grades.all())
-            g_credits = sum(gr.credits for gr in g.grades.all())
+        same_grade_students = Student.objects.filter(classroom__grade=student.classroom.grade)
+        for s in same_grade_students:
+            ggroup = GradeGroup.objects.filter(student=s, semester=grade_group.semester, grade=grade_group.grade).order_by('-updated_at').first()
+            if not ggroup:
+                continue
+            ggrades = ggroup.grades.all()
+            g_total = sum(gr.total_score * gr.credits for gr in ggrades)
+            g_credits = sum(gr.credits for gr in ggrades)
             if g_credits > 0:
                 all_totals.append(g_total / g_credits)
 
         all_totals.sort(reverse=True)
-        my_rank = all_totals.index(sum_total_score) + 1
+        my_rank = next((i + 1 for i, score in enumerate(all_totals) if abs(score - sum_total_score) < 1e-6), None)
+        if my_rank is None:
+            return Response({"error": "등수를 계산할 수 없습니다."}, status=500)
 
         return Response({
             "studentId": student.student_id,
@@ -213,5 +228,16 @@ class GradeOverviewView(APIView):
             "radarChart": {
                 "labels": [s["name"] for s in subject_results],
                 "data": [s["totalScore"] for s in subject_results]
+            }
+        })
+
+class GradeInputPeriodView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response({
+            "semesterPeriod": {
+                "start": "2025-05-01",
+                "end": "2025-06-16"
             }
         })
