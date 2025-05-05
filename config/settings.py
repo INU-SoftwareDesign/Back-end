@@ -93,7 +93,7 @@ DATABASES = {
         'NAME': 'student_management_db',
         'USER': 'root',
         'PASSWORD': 'root',
-        'HOST': 'localhost',
+        'HOST': '172.31.20.65',  #'localhost',
         'PORT': '5432',
     }
 }
