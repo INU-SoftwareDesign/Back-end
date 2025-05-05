@@ -29,6 +29,13 @@ pipeline {
                 sh 'docker run -d -p 5000:5000 --name django-container django-backend'
             }
         }
+
+        stage('Collect Static Files') {
+            steps {
+                sh 'sleep 5'  // 컨테이너 부팅 대기
+                sh 'docker exec django-container python manage.py collectstatic --noinput'
+            }
+        }
     }
 }
 
