@@ -43,7 +43,7 @@ class SignUpView(APIView):
 
         if role == "teacher":
             Teacher.objects.create(user=user, teacher_code=data["teacherCode"])
-            classroom = Classroom.objects.filter(grade=data["grade"], class_number=data["class"]).first()
+            classroom = Classroom.objects.filter(grade=data["grade"], class_number=data["classNumber"]).first()
             if classroom:
                 classroom.teacher = Teacher.objects.get(user=user)
                 classroom.save()
@@ -55,7 +55,7 @@ class SignUpView(APIView):
                     subject.save()
 
         elif role == "student":
-            classroom = Classroom.objects.filter(grade=data["grade"], class_number=data["class"]).first()
+            classroom = Classroom.objects.filter(grade=data["grade"], class_number=data["classNumber"]).first()
             student = Student.objects.create(
                 user=user,
                 classroom=classroom,
@@ -65,7 +65,7 @@ class SignUpView(APIView):
             StudentClassHistory.objects.create(
                 student=student,
                 grade=data["grade"],
-                class_number=data["class"],
+                class_number=data["classNumber"],
                 number=data["number"],
                 homeroom_teacher=classroom.teacher.user.name if classroom and classroom.teacher else ""
             )
@@ -104,7 +104,7 @@ class LoginView(APIView):
             classroom = getattr(teacher, "classroom", None)
             base_data.update({
                 "grade": classroom.grade if classroom else None,
-                "class": classroom.class_number if classroom else None
+                "classNumber": classroom.class_number if classroom else None
             })
 
         elif user.role == "student":
@@ -112,7 +112,7 @@ class LoginView(APIView):
             classroom = student.classroom
             base_data.update({
                 "grade": classroom.grade if classroom else None,
-                "class": classroom.class_number if classroom else None,
+                "classNumber": classroom.class_number if classroom else None,
                 "number": student.student_number,
                 "studentId": student.student_id
             })
@@ -124,7 +124,7 @@ class LoginView(APIView):
                 classroom = student.classroom
                 base_data.update({
                     "grade": classroom.grade if classroom else None,
-                    "class": classroom.class_number if classroom else None,
+                    "classNumber": classroom.class_number if classroom else None,
                     "childStudentId": student.student_id
                 })
 
@@ -196,7 +196,7 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
             classroom = Classroom.objects.filter(teacher=teacher).first()
             data.update({
                 "grade": classroom.grade if classroom else None,
-                "class": classroom.class_number if classroom else None,
+                "classNumber": classroom.class_number if classroom else None,
                 "subjects": list(Subject.objects.filter(teacher=teacher).values_list("name", flat=True)),
                 "teacherCode": teacher.teacher_code
             })
@@ -206,7 +206,7 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
             classroom = student.classroom
             data.update({
                 "grade": classroom.grade if classroom else None,
-                "class": classroom.class_number if classroom else None,
+                "classNumber": classroom.class_number if classroom else None,
                 "number": student.student_number,
                 "studentId": student.student_id
             })
@@ -281,7 +281,7 @@ class SocialLoginView(APIView):
             classroom = getattr(teacher, "classroom", None)
             base_data.update({
                 "grade": classroom.grade if classroom else None,
-                "class": classroom.class_number if classroom else None
+                "classNumber": classroom.class_number if classroom else None
             })
 
         elif user.role == "student":
@@ -289,7 +289,7 @@ class SocialLoginView(APIView):
             classroom = student.classroom
             base_data.update({
                 "grade": classroom.grade if classroom else None,
-                "class": classroom.class_number if classroom else None,
+                "classNumber": classroom.class_number if classroom else None,
                 "number": student.student_number,
                 "childStudentId": student.student_id
             })
@@ -301,7 +301,7 @@ class SocialLoginView(APIView):
                 classroom = student.classroom
                 base_data.update({
                     "grade": classroom.grade if classroom else None,
-                    "class": classroom.class_number if classroom else None,
+                    "classNumber": classroom.class_number if classroom else None,
                     "childStudentId": student.student_id
                 })
 
@@ -338,7 +338,7 @@ class SocialRegisterDetailView(APIView):
 
         if role == "student":
             classroom = Classroom.objects.filter(
-                grade=data.get("grade"), class_number=data.get("class")
+                grade=data.get("grade"), class_number=data.get("classNumber")
             ).first()
             if not classroom:
                 return Response({"error": "해당 반이 존재하지 않습니다."}, status=400)
@@ -361,7 +361,7 @@ class SocialRegisterDetailView(APIView):
             Teacher.objects.create(user=user, teacher_code=data["teacherCode"])
 
             classroom = Classroom.objects.filter(
-                grade=data.get("grade"), class_number=data.get("class")
+                grade=data.get("grade"), class_number=data.get("classNumber")
             ).first()
             if classroom:
                 classroom.teacher = Teacher.objects.get(user=user)

@@ -7,19 +7,19 @@ class StudentListSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source='user.name')
     studentId = serializers.CharField(source='student_id')
     grade = serializers.SerializerMethodField()
-    class_ = serializers.SerializerMethodField()
+    classNumber = serializers.SerializerMethodField()
     number = serializers.IntegerField(source='student_number')
     recentCounselingDate = serializers.SerializerMethodField()
     profileImage = serializers.URLField(source='profile_image')
 
     class Meta:
         model = Student
-        fields = ['id', 'name', 'studentId', 'grade', 'class_', 'number', 'recentCounselingDate', 'profileImage']
+        fields = ['id', 'name', 'studentId', 'grade', 'classNumber', 'number', 'recentCounselingDate', 'profileImage']
 
     def get_grade(self, obj):
         return obj.classroom.grade if obj.classroom else None
 
-    def get_class_(self, obj):
+    def get_classNumber(self, obj):
         return obj.classroom.class_number if obj.classroom else None
 
     def get_recentCounselingDate(self, obj):
@@ -28,18 +28,18 @@ class StudentListSerializer(serializers.ModelSerializer):
 
 
 class StudentClassHistorySerializer(serializers.ModelSerializer):
-    class_ = serializers.IntegerField(source='class_number')
+    classNumber = serializers.IntegerField(source='class_number')
 
     class Meta:
         model = StudentClassHistory
-        fields = ['grade', 'class_', 'number', 'homeroom_teacher']
+        fields = ['grade', 'classNumber', 'number', 'homeroom_teacher']
 
 
 class StudentDetailSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source='user.name')
     studentId = serializers.CharField(source='student_id')
     grade = serializers.SerializerMethodField()
-    class_ = serializers.SerializerMethodField()
+    classNumber = serializers.SerializerMethodField()
     number = serializers.IntegerField(source='student_number')
     birthDate = serializers.DateField(source='user.birth_date')
     address = serializers.CharField(source='user.address')
@@ -52,14 +52,14 @@ class StudentDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Student
         fields = [
-            'profileImage', 'name', 'studentId', 'grade', 'class_', 'number',
+            'profileImage', 'name', 'studentId', 'grade', 'classNumber', 'number',
             'birthDate', 'address', 'fatherName', 'motherName', 'history', 'academicRecords'
         ]
 
     def get_grade(self, obj):
         return obj.classroom.grade if obj.classroom else None
 
-    def get_class_(self, obj):
+    def get_classNumber(self, obj):
         return obj.classroom.class_number if obj.classroom else None
 
     def get_fatherName(self, obj):

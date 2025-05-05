@@ -195,7 +195,7 @@ class GradeOverviewView(APIView):
             "studentId": student.student_id,
             "studentName": student.user.name,
             "grade": student.classroom.grade if student.classroom else None,
-            "class": student.classroom.class_number if student.classroom else None,
+            "classNumber": student.classroom.class_number if student.classroom else None,
             "number": student.student_number,
             "subjects": subject_results,
             "totals": {

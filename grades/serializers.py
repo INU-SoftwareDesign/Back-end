@@ -7,7 +7,7 @@ class GradeStudentStatusSerializer(serializers.Serializer):
     name = serializers.CharField(source='user.name')
     studentId = serializers.CharField(source='student_id')
     grade = serializers.SerializerMethodField()
-    class_ = serializers.SerializerMethodField()
+    classNumber = serializers.SerializerMethodField()
     number = serializers.IntegerField(source='student_number')
     profileImage = serializers.URLField(source='profile_image')
     gradeStatus = serializers.CharField()
@@ -15,7 +15,7 @@ class GradeStudentStatusSerializer(serializers.Serializer):
     def get_grade(self, obj):
         return obj.classroom.grade if obj.classroom else None
 
-    def get_class_(self, obj):
+    def get_classNumber(self, obj):
         return obj.classroom.class_number if obj.classroom else None
 
 class GradeInputSerializer(serializers.Serializer):
