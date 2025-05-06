@@ -176,3 +176,4 @@ CORS_ALLOWED_ORIGINS = [
      "http://localhost:3000",
      "http://52.73.19.160:3000",
 ]
+#Add corsheaders
