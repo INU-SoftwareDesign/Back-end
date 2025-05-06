@@ -32,6 +32,7 @@ ALLOWED_HOSTS = ["*", "localhost", "127.0.0.1", "52.73.19.160"]
 # Application definition
 
 INSTALLED_APPS = [
+    'corsheaders',
     'rest_framework',
     'accounts',
     'students',
@@ -55,6 +56,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -169,3 +171,8 @@ NAVER_CLIENT_ID = os.getenv("NAVER_CLIENT_ID")
 NAVER_CLIENT_SECRET = os.getenv("NAVER_CLIENT_SECRET")
 
 MIDDLEWARE += ['utils.middleware.SlackExceptionMiddleware']
+
+CORS_ALLOWED_ORIGINS = [
+     "http://localhost:3000",
+     "http://52.73.19.160:3000",
+]
