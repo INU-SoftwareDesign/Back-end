@@ -36,7 +36,7 @@ class GradeManagementStatusView(APIView):
         return Response({
             "semesterPeriod": {
                 "start": "2025-05-01",
-                "end": "2025-05-07"
+                "end": "2025-06-16"
             },
             "students": serializer.data
         })
@@ -120,8 +120,10 @@ class GradeOverviewView(APIView):
         student = get_object_or_404(Student, id=student_id)
         group_qs = GradeGroup.objects.filter(student=student)
         if grade:
+            grade = f"{grade}학년" if '학년' not in grade else grade
             group_qs = group_qs.filter(grade=grade)
         if semester:
+            semester = f"{semester}학기" if '학기' not in semester else semester
             group_qs = group_qs.filter(semester=semester)
 
         grade_group = group_qs.order_by('-updated_at').first()
