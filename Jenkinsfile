@@ -8,6 +8,13 @@ pipeline {
             }
         }
 
+        stage('Inject .env') {
+            steps {
+                // EC2에 고정 저장된 .env.backend 파일을 Jenkins 작업 디렉토리로 복사
+                sh 'cp /home/ubuntu/.env.backend .env'
+            }
+        }
+        
         stage('Docker Cleanup') {
             steps {
                 // 이전 컨테이너, 이미지 제거

@@ -11,6 +11,8 @@ COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . /app/
+COPY .env /app/.env 
+# 환경 변수 파일 EC2 내부에 이식하였음.
 
 EXPOSE 5000
 
