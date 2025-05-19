@@ -47,7 +47,7 @@ class GradeManagementStatusView(APIView):
                 "students": serializer.data
             })
         except Exception as e:
-            send_error_slack(request, "성적 목록 조회", start_time)
+            send_error_slack(request, "성적 목록 조회", start_time, error=e)
             return Response({"error": str(e)}, status=500)
 
 class GradeUpdateView(APIView):
@@ -79,10 +79,10 @@ class GradeUpdateView(APIView):
                     )
                 send_success_slack(request, "성적 등록", start_time)
                 return Response({"message": "Grades submitted successfully"}, status=200)
-            send_error_slack(request, "성적 등록", start_time)
+            send_error_slack(request, "성적 등록", start_time, error=e)
             return Response({"error": "Invalid subject format or missing fields"}, status=400)
         except Exception as e:
-            send_error_slack(request, "성적 등록", start_time)
+            send_error_slack(request, "성적 등록", start_time, error=e)
             return Response({"error": str(e)}, status=500)
 
     def patch(self, request, student_id):
@@ -91,13 +91,13 @@ class GradeUpdateView(APIView):
             student = get_object_or_404(Student, id=student_id)
             serializer = GradeInputSerializer(data=request.data, partial=True)
             if not serializer.is_valid():
-                send_error_slack(request, "성적 수정", start_time)
+                send_error_slack(request, "성적 수정", start_time, error=e)
                 return Response({"error": "Invalid input"}, status=400)
             
             data = serializer.validated_data
             grade_group = GradeGroup.objects.filter(student=student).order_by('-updated_at').first()
             if not grade_group:
-                send_error_slack(request, "성적 수정", start_time)
+                send_error_slack(request, "성적 수정", start_time, error=e)
                 return Response({"error": "성적 정보가 없습니다."}, status=404)
 
             if 'gradeStatus' in data:
@@ -126,7 +126,7 @@ class GradeUpdateView(APIView):
             send_success_slack(request, "성적 수정", start_time)
             return Response({"message": "Grades patched successfully"}, status=200)
         except Exception as e:
-            send_error_slack(request, "성적 수정", start_time)
+            send_error_slack(request, "성적 수정", start_time, error=e)
             return Response({"error": str(e)}, status=500)
 
     def get_subject_id_by_name(self, name):
@@ -157,7 +157,7 @@ class GradeOverviewView(APIView):
 
             grade_group = group_qs.order_by('-updated_at').first()
             if not grade_group:
-                send_error_slack(request, "성적 상세 조회", start_time)
+                send_error_slack(request, "성적 상세 조회", start_time, error=e)
                 return Response({"error": "성적 정보가 없습니다."}, status=404)
 
             grades = grade_group.grades.select_related('subject')
@@ -236,7 +236,7 @@ class GradeOverviewView(APIView):
             all_totals.sort(reverse=True)
             my_rank = next((i + 1 for i, score in enumerate(all_totals) if abs(score - sum_total_score) < 1e-6), None)
             if my_rank is None:
-                send_error_slack(request, "성적 상세 조회", start_time)
+                send_error_slack(request, "성적 상세 조회", start_time, error=e)
                 return Response({"error": "등수를 계산할 수 없습니다."}, status=500)
 
             send_success_slack(request, "성적 상세 조회", start_time)
@@ -265,7 +265,7 @@ class GradeOverviewView(APIView):
                 }
             })
         except Exception as e:
-            send_error_slack(request, "성적 상세 조회", start_time)
+            send_error_slack(request, "성적 상세 조회", start_time, error=e)
             return Response({"error": str(e)}, status=500)
 
 
