@@ -34,7 +34,7 @@ class StudentListView(ListAPIView):
             send_success_slack(request, "학생 목록 조회", start_time)
             return response
         except Exception as e:
-            send_error_slack(request, "학생 목록 조회", start_time)
+            send_error_slack(request, "학생 목록 조회", start_time, error=e)
             return Response({"error": str(e)}, status=500)
 
 
@@ -52,10 +52,10 @@ class StudentDetailView(RetrieveUpdateDestroyAPIView):
             send_success_slack(request, "학생 상세 조회", start_time)
             return response
         except Student.DoesNotExist:
-            send_error_slack(request, "학생 상세 조회", start_time)
+            send_error_slack(request, "학생 상세 조회", start_time, error=e)
             return Response({"error": "Student not found"}, status=404)
         except Exception as e:
-            send_error_slack(request, "학생 상세 조회", start_time)
+            send_error_slack(request, "학생 상세 조회", start_time, error=e)
             return Response({"error": str(e)}, status=500)
 
     def update(self, request, *args, **kwargs):
@@ -68,7 +68,7 @@ class StudentDetailView(RetrieveUpdateDestroyAPIView):
             send_success_slack(request, "학생 정보 수정", start_time)
             return Response({"message": "Student information updated successfully"}, status=200)
         except Exception as e:
-            send_error_slack(request, "학생 정보 수정", start_time)
+            send_error_slack(request, "학생 정보 수정", start_time, error=e)
             return Response({"error": str(e)}, status=500)
 
     def destroy(self, request, *args, **kwargs):

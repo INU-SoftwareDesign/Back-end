@@ -67,7 +67,7 @@ class AttendanceView(APIView):
             return Response(serializer.data)
 
         except Exception as e:
-            send_error_slack(request, "출결 조회", start_time)
+            send_error_slack(request, "출결 조회", start_time, error=e)
             return Response({"error": str(e)}, status=500)
 
     def post(self, request, student_id):
@@ -100,7 +100,7 @@ class AttendanceView(APIView):
             return Response({"message": "Attendance record added successfully"}, status=201)
 
         except Exception as e:
-            send_error_slack(request, "출결 등록", start_time)
+            send_error_slack(request, "출결 등록", start_time, error=e)
             return Response({"error": str(e)}, status=500)
 
     def delete(self, request, student_id):
@@ -122,9 +122,9 @@ class AttendanceView(APIView):
                 send_success_slack(request, "출결 삭제", start_time)
                 return Response({"message": "Attendance record deleted successfully"}, status=200)
             else:
-                send_error_slack(request, "출결 삭제", start_time)
+                send_error_slack(request, "출결 삭제", start_time, error=e)
                 return Response({"message": "Attendance record not found"}, status=404)
 
         except Exception as e:
-            send_error_slack(request, "출결 삭제", start_time)
+            send_error_slack(request, "출결 삭제", start_time, error=e)
             return Response({"error": str(e)}, status=500)
