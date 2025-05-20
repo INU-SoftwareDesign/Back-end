@@ -46,4 +46,3 @@ pipeline {
     }
 }
 
-// Webhook test http://52.73.19.160:8080/github-webhook/
