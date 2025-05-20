@@ -1,48 +1,62 @@
 pipeline {
     agent any
 
+    environment {
+        DOCKER_IMAGE = 'mario322/django-backend'
+    }
+
     stages {
-        stage('Clone') {
+        stage('Checkout') {
             steps {
-                git branch: 'feature/hjh', url: 'https://github.com/INU-SoftwareDesign/Back-end.git'
+                checkout scm
+                script {
+                    env.CURRENT_BRANCH = 'main'
+                    env.TAG = "prod-${env.BUILD_NUMBER}"
+                    env.PORT = '5000'
+                    echo "✅ 운영 브랜치: main"
+                    echo "📦 이미지 태그: ${env.TAG}"
+                }
             }
         }
 
-        stage('Inject .env') {
+        stage('Docker Build & Push') {
             steps {
-                // EC2에 고정 저장된 .env.backend 파일을 Jenkins 작업 디렉토리로 복사
-                sh 'cp /var/lib/jenkins/.env.backend .env'
+                withCredentials([string(credentialsId: 'dockerhub-token', variable: 'DOCKER_TOKEN')]) {
+                    sh '''
+                        docker build -t $DOCKER_IMAGE:$TAG .
+                        echo "$DOCKER_TOKEN" | docker login -u mario322 --password-stdin
+                        docker push $DOCKER_IMAGE:$TAG
+                    '''
+                }
             }
         }
 
-        stage('Docker Cleanup') {
+        stage('Update GitOps') {
             steps {
-                // 이전 컨테이너, 이미지 제거
-                sh 'docker stop django-container || true'
-                sh 'docker rm django-container || true'
-                sh 'docker rmi django-backend || true'
-            }
-        }
+                withCredentials([usernamePassword(credentialsId: 'github-cred', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
+                    sh '''
+                        git config --global user.name "Jenkins"
+                        git config --global user.email "jenkins@example.com"
 
-        stage('Docker Build') {
-            steps {
-                // --no-cache 옵션 추가 (필요시)
-                sh 'docker build --no-cache -t django-backend .'
-            }
-        }
+                        git clone https://$GIT_USER:$GIT_TOKEN@github.com/platypus322/DevOps.git
+                        cd DevOps/helm/backend/prod
 
-        stage('Docker Run') {
-            steps {
-                sh 'docker run -d -p 5000:5000 --name django-container django-backend'
-            }
-        }
+                        sed -i "s/tag:.*/tag: $TAG/" values.yaml
 
-        stage('Collect Static Files') {
-            steps {
-                sh 'sleep 5'  // 컨테이너 부팅 대기
-                sh 'docker exec django-container python manage.py collectstatic --noinput'
+                        git add values.yaml
+                        git commit -m "🔄 Update backend-prod image tag to $TAG"
+                        git push origin main
+                    '''
+                }
             }
         }
     }
-}
 
+    post {
+        always {
+            sh 'docker container prune -f'
+            sh 'docker rmi $DOCKER_IMAGE:$TAG || true'
+            cleanWs()
+        }
+    }
+}
