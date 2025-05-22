@@ -12,19 +12,34 @@ pipeline {
                 script {
                     env.CURRENT_BRANCH = 'main'
                     env.TAG = "prod-${env.BUILD_NUMBER}"
-                    env.PORT = '5000'
                     echo "✅ 운영 브랜치: main"
                     echo "📦 이미지 태그: ${env.TAG}"
                 }
             }
         }
 
-                stage('Prepare Environment') {
+        stage('Test (Optional)') {
             steps {
-                // Secret File Credential로부터 .env 파일을 받아서 워크스페이스에 복사
-                withCredentials([file(credentialsId: 'backend-env-prod', variable: 'ENV_FILE')]) {
-                    sh 'cp $ENV_FILE .env'
-                    sh 'ls -l .env'
+                withCredentials([
+                    string(credentialsId: 'KAKAO_REST_API_KEY', variable: 'KAKAO_REST_API_KEY'),
+                    string(credentialsId: 'GOOGLE_CLIENT_ID', variable: 'GOOGLE_CLIENT_ID'),
+                    string(credentialsId: 'GOOGLE_CLIENT_SECRET', variable: 'GOOGLE_CLIENT_SECRET'),
+                    string(credentialsId: 'NAVER_CLIENT_ID', variable: 'NAVER_CLIENT_ID'),
+                    string(credentialsId: 'NAVER_CLIENT_SECRET', variable: 'NAVER_CLIENT_SECRET'),
+                    string(credentialsId: 'NAVER_CALLBACK_URL', variable: 'NAVER_CALLBACK_URL'),
+                    string(credentialsId: 'SLACK_WEBHOOK_URL', variable: 'SLACK_WEBHOOK_URL')
+                ]) {
+                    sh '''
+                    export KAKAO_REST_API_KEY=$KAKAO_REST_API_KEY
+                    export GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID
+                    export GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET
+                    export NAVER_CLIENT_ID=$NAVER_CLIENT_ID
+                    export NAVER_CLIENT_SECRET=$NAVER_CLIENT_SECRET
+                    export NAVER_CALLBACK_URL=$NAVER_CALLBACK_URL
+                    export SLACK_WEBHOOK_URL=$SLACK_WEBHOOK_URL
+                    # 여기서 pytest 등 유닛테스트 필요시 실행
+                    # pytest
+                    '''
                 }
             }
         }
