@@ -19,6 +19,16 @@ pipeline {
             }
         }
 
+                stage('Prepare Environment') {
+            steps {
+                // Secret File Credential로부터 .env 파일을 받아서 워크스페이스에 복사
+                withCredentials([file(credentialsId: 'backend-env-prod', variable: 'ENV_FILE')]) {
+                    sh 'cp $ENV_FILE .env'
+                    sh 'ls -l .env'
+                }
+            }
+        }
+
         stage('Docker Build & Push') {
             steps {
                 withCredentials([string(credentialsId: 'dockerhub-token', variable: 'DOCKER_TOKEN')]) {
