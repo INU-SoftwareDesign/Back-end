@@ -28,7 +28,7 @@ pipeline {
                     string(credentialsId: 'NAVER_CLIENT_ID', variable: 'NAVER_CLIENT_ID'),
                     string(credentialsId: 'NAVER_CLIENT_SECRET', variable: 'NAVER_CLIENT_SECRET'),
                     string(credentialsId: 'NAVER_CALLBACK_TEST_URL', variable: 'NAVER_CALLBACK_URL'),
-                    string(credentialsId: 'SLACK_WEBHOOK_URL', variable: 'SLACK_WEBHOOK_URL')
+                    // string(credentialsId: 'SLACK_WEBHOOK_URL', variable: 'SLACK_WEBHOOK_URL')
                 ]) {
                     sh '''
                     export KAKAO_REST_API_KEY=$KAKAO_REST_API_KEY
@@ -37,7 +37,7 @@ pipeline {
                     export NAVER_CLIENT_ID=$NAVER_CLIENT_ID
                     export NAVER_CLIENT_SECRET=$NAVER_CLIENT_SECRET
                     export NAVER_CALLBACK_URL=$NAVER_CALLBACK_URL
-                    export SLACK_WEBHOOK_URL=$SLACK_WEBHOOK_URL
+                    # export SLACK_WEBHOOK_URL=$SLACK_WEBHOOK_URL
                     # 여기서 pytest 등 유닛테스트 필요시 실행
                     # pytest
                     '''
