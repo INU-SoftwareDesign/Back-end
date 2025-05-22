@@ -14,7 +14,7 @@ SECRET_KEY = 'django-insecure-z=08n^o=sb%sz_8k+3=r!u5f4ij^8vrggj%6gikk*$wly=tr_l
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 't')
 
-ALLOWED_HOSTS = ["*", "localhost", "127.0.0.1", "52.73.19.160"]
+ALLOWED_HOSTS = ["*", "localhost", "127.0.0.1","www.소설고등학교.site"]
 #HOST 나중에 바꿔야함
 
 # Application definition
@@ -159,7 +159,6 @@ NAVER_CALLBACK_URL   = os.environ.get("NAVER_CALLBACK_URL")
 SLACK_WEBHOOK_URL    = os.environ.get("SLACK_WEBHOOK_URL")
 
 CORS_ALLOWED_ORIGINS = [
-    'CORS_ALLOWED_ORIGINS',
-    "https://www.소설고등학교.site,https://api.소설고등학교.site"
-].split(',')
+    "https://www.소설고등학교.site"
+]
 #Add corsheaders
