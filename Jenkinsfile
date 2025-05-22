@@ -12,19 +12,35 @@ pipeline {
                 script {
                     env.CURRENT_BRANCH = 'develop'
                     env.TAG = "dev-${env.BUILD_NUMBER}"
-                    env.PORT = '5001'
                     echo "✅ 테스트 브랜치: develop"
                     echo "📦 이미지 태그: ${env.TAG}"
                 }
             }
         }
 
-                stage('Prepare Environment') {
+        // 개발환경 테스트나 필요시 환경변수 임시로 세팅 (이미지 빌드와는 무관)
+        stage('Test (Optional)') {
             steps {
-                // Secret File Credential로부터 .env 파일을 받아서 워크스페이스에 복사
-                withCredentials([file(credentialsId: 'backend-env-dev', variable: 'ENV_FILE')]) {
-                    sh 'cp $ENV_FILE .env'
-                    sh 'ls -l .env'
+                withCredentials([
+                    string(credentialsId: 'KAKAO_REST_API_KEY', variable: 'KAKAO_REST_API_KEY'),
+                    string(credentialsId: 'GOOGLE_CLIENT_ID', variable: 'GOOGLE_CLIENT_ID'),
+                    string(credentialsId: 'GOOGLE_CLIENT_SECRET', variable: 'GOOGLE_CLIENT_SECRET'),
+                    string(credentialsId: 'NAVER_CLIENT_ID', variable: 'NAVER_CLIENT_ID'),
+                    string(credentialsId: 'NAVER_CLIENT_SECRET', variable: 'NAVER_CLIENT_SECRET'),
+                    string(credentialsId: 'NAVER_CALLBACK_TEST_URL', variable: 'NAVER_CALLBACK_URL'),
+                    string(credentialsId: 'SLACK_WEBHOOK_URL', variable: 'SLACK_WEBHOOK_URL')
+                ]) {
+                    sh '''
+                    export KAKAO_REST_API_KEY=$KAKAO_REST_API_KEY
+                    export GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID
+                    export GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET
+                    export NAVER_CLIENT_ID=$NAVER_CLIENT_ID
+                    export NAVER_CLIENT_SECRET=$NAVER_CLIENT_SECRET
+                    export NAVER_CALLBACK_URL=$NAVER_CALLBACK_URL
+                    export SLACK_WEBHOOK_URL=$SLACK_WEBHOOK_URL
+                    # 여기서 pytest 등 유닛테스트 필요시 실행
+                    # pytest
+                    '''
                 }
             }
         }
