@@ -173,7 +173,6 @@ NAVER_CLIENT_SECRET = os.getenv("NAVER_CLIENT_SECRET")
 MIDDLEWARE += ['utils.middleware.SlackExceptionMiddleware']
 
 CORS_ALLOWED_ORIGINS = [
-     "http://localhost:3000",
-     "http://52.73.19.160:3000",
+    "https://www.소설고등학교.site",
 ]
 #Add corsheaders
