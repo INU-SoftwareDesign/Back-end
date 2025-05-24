@@ -14,5 +14,5 @@ COPY . /app/
 
 EXPOSE 5001
 
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "config.wsgi:application"]
+CMD ["gunicorn", "--bind", "0.0.0.0:80", "config.wsgi:application"]
 
