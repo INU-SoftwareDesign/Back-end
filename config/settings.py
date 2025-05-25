@@ -162,6 +162,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://dev.소설고등학교.site"
 ]
 
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
 #Add corsheaders
