@@ -161,4 +161,7 @@ SLACK_WEBHOOK_URL    = os.environ.get("SLACK_WEBHOOK_URL")
 CORS_ALLOWED_ORIGINS = [
     "https://dev.소설고등학교.site"
 ]
+
+CORS_ALLOW_CREDENTIALS = True
+
 #Add corsheaders
