@@ -87,6 +87,9 @@ DATABASES = {
         'PASSWORD': os.environ.get('DB_PASSWORD', 'root'),
         'HOST': os.environ.get('DB_HOST', 'localhost'),  # [수정] 기본값 localhost
         'PORT': os.environ.get('DB_PORT', '5432'),
+        'OPTIONS': {
+            'sslmode': 'require',
+        },
     }
 }
 
