@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'notifications',
     'reports',
     'classrooms',
+    'specialnotes',
     'rest_framework_simplejwt.token_blacklist',
     'django.contrib.admin',
     'django.contrib.auth',
