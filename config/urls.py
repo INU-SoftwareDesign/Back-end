@@ -29,7 +29,7 @@ urlpatterns = [
     path('api/attendances/', include('attendances.urls')),
     path('api/notifications/', include('notifications.urls')),
     path('api/reports/', include('reports.urls')),
-
+    path('api/specialnotes/', include('specialnotes.urls')),
     # ArgoCD health check용
     path('healthz/', lambda request: JsonResponse({"status": "ok"})),
 ]
