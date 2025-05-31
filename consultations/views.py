@@ -1,14 +1,25 @@
+# consultations/views.py
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Counseling
-from .serializers import CounselingSerializer, CounselingRequestSerializer, CounselingApproveSerializer, CounselingUpdateSerializer, TeacherCounselingRequestSerializer, TeacherScheduledCounselingSerializer
+from .serializers import (
+    CounselingSerializer,
+    CounselingRequestSerializer,
+    CounselingApproveSerializer,
+    CounselingUpdateSerializer,
+    TeacherCounselingRequestSerializer,
+    TeacherScheduledCounselingSerializer
+)
 from students.models import Student
 from rest_framework.permissions import IsAuthenticated
 from datetime import datetime
 from teachers.models import Teacher
 from utils.slack import send_success_slack, send_error_slack
 from datetime import datetime
+from django.core.cache import cache  # ← 캐시 사용을 위해 import 추가
+
 
 class StudentCounselingListView(APIView):
     permission_classes = [IsAuthenticated]
@@ -19,6 +30,12 @@ class StudentCounselingListView(APIView):
             status_param = request.query_params.get('status')
             start_date = request.query_params.get('startDate')
             end_date = request.query_params.get('endDate')
+
+            # 캐시 키 생성: 학생 ID + 필터 파라미터(status, start_date, end_date)
+            cache_key = f"counselings:student:{student_id}:status:{status_param or 'all'}:start:{start_date or 'none'}:end:{end_date or 'none'}"
+            cached_data = cache.get(cache_key)
+            if cached_data is not None:
+                return Response({"success": True, "data": cached_data}, status=status.HTTP_200_OK)
 
             student = Student.objects.get(id=student_id)
             queryset = Counseling.objects.filter(student=student)
@@ -31,13 +48,19 @@ class StudentCounselingListView(APIView):
                 queryset = queryset.filter(counseling_date__lte=end_date)
 
             serializer = CounselingSerializer(queryset, many=True)
+            data = serializer.data
+
+            # 조회 결과를 캐시에 저장 (5분간 유지)
+            cache.set(cache_key, data, timeout=300)
+
             send_success_slack(request, "학생 상담 내역 조회", start_time)
-            return Response({"success": True, "data": serializer.data}, status=status.HTTP_200_OK)
-        
+            return Response({"success": True, "data": data}, status=status.HTTP_200_OK)
+
         except Exception as e:
             send_error_slack(request, "학생 상담 내역 조회", start_time)
             return Response({"detail": "해당 학생이 존재하지 않습니다."}, status=status.HTTP_404_NOT_FOUND)
-    
+
+
 class TeacherCounselingRequestListView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -47,6 +70,12 @@ class TeacherCounselingRequestListView(APIView):
             status_param = request.query_params.get('status')
             start_date = request.query_params.get('startDate')
             end_date = request.query_params.get('endDate')
+
+            # 캐시 키 생성: 교사 ID + 필터 파라미터(status, start_date, end_date)
+            cache_key = f"counselings:teacher_requests:{teacher_id}:status:{status_param or 'all'}:start:{start_date or 'none'}:end:{end_date or 'none'}"
+            cached_data = cache.get(cache_key)
+            if cached_data is not None:
+                return Response({"success": True, "data": cached_data}, status=status.HTTP_200_OK)
 
             teacher = Teacher.objects.get(id=teacher_id)
             queryset = Counseling.objects.filter(teacher=teacher)
@@ -64,9 +93,14 @@ class TeacherCounselingRequestListView(APIView):
             queryset = queryset.order_by('counseling_date', 'counseling_time')
 
             serializer = TeacherCounselingRequestSerializer(queryset, many=True)
+            data = serializer.data
+
+            # 조회 결과를 캐시에 저장 (5분간 유지)
+            cache.set(cache_key, data, timeout=300)
+
             send_success_slack(request, "상담 신청 조회", start_time)
-            return Response({"success": True, "data": serializer.data}, status=status.HTTP_200_OK)
-        
+            return Response({"success": True, "data": data}, status=status.HTTP_200_OK)
+
         except Exception as e:
             send_error_slack(request, "상담 신청 조회", start_time)
             return Response({"detail": "해당 교사가 존재하지 않습니다."}, status=status.HTTP_404_NOT_FOUND)
@@ -82,6 +116,12 @@ class TeacherScheduledCounselingListView(APIView):
             start_date = request.query_params.get('startDate')
             end_date = request.query_params.get('endDate')
 
+            # 캐시 키 생성: 교사 ID + start/end 필터 (상태는 항상 '예약확정'으로 고정)
+            cache_key = f"counselings:teacher_scheduled:{teacher_id}:start:{start_date or 'none'}:end:{end_date or 'none'}"
+            cached_data = cache.get(cache_key)
+            if cached_data is not None:
+                return Response({"success": True, "data": cached_data}, status=status.HTTP_200_OK)
+
             teacher = Teacher.objects.get(id=teacher_id)
             queryset = Counseling.objects.filter(teacher=teacher, status__in=status_list)
 
@@ -93,12 +133,18 @@ class TeacherScheduledCounselingListView(APIView):
             queryset = queryset.order_by('counseling_date', 'counseling_time')
 
             serializer = TeacherScheduledCounselingSerializer(queryset, many=True)
+            data = serializer.data
+
+            # 조회 결과를 캐시에 저장 (5분간 유지)
+            cache.set(cache_key, data, timeout=300)
+
             send_success_slack(request, "확정 상담 일정 조회", start_time)
-            return Response({"success": True, "data": serializer.data}, status=status.HTTP_200_OK)
-        
+            return Response({"success": True, "data": data}, status=status.HTTP_200_OK)
+
         except Exception as e:
             send_error_slack(request, "확정 상담 일정 조회", start_time)
             return Response({"detail": "해당 교사가 존재하지 않습니다."}, status=status.HTTP_404_NOT_FOUND)
+
 
 class TeacherCounselingCalendarView(APIView):
     permission_classes = [IsAuthenticated]
@@ -117,6 +163,12 @@ class TeacherCounselingCalendarView(APIView):
                         "message": "year와 month는 필수입니다."
                     }
                 }, status=status.HTTP_400_BAD_REQUEST)
+
+            # 캐시 키 생성: 교사 ID + 연도 + 월
+            cache_key = f"counselings:teacher_calendar:{teacher_id}:year:{year}:month:{month}"
+            cached_data = cache.get(cache_key)
+            if cached_data is not None:
+                return Response({"success": True, "data": cached_data}, status=status.HTTP_200_OK)
 
             teacher = Teacher.objects.get(id=teacher_id)
             queryset = Counseling.objects.filter(
@@ -148,16 +200,18 @@ class TeacherCounselingCalendarView(APIView):
                     "status": c.status
                 })
 
+            data = {
+                "availableTimes": available_times,
+                "bookedSlots": booked_slots,
+                "counselings": counselings_data
+            }
+
+            # 조회 결과를 캐시에 저장 (5분간 유지)
+            cache.set(cache_key, data, timeout=300)
+
             send_success_slack(request, "상담 스케줄 조회", start_time)
-            return Response({
-                "success": True,
-                "data": {
-                    "availableTimes": available_times,
-                    "bookedSlots": booked_slots,
-                    "counselings": counselings_data
-                }
-            }, status=status.HTTP_200_OK)
-        
+            return Response({"success": True, "data": data}, status=status.HTTP_200_OK)
+
         except Exception as e:
             send_error_slack(request, "상담 스케줄 조회", start_time)
             return Response({"detail": "해당 교사가 존재하지 않습니다."}, status=status.HTTP_404_NOT_FOUND)
@@ -174,6 +228,12 @@ class AvailableCounselingTimesView(APIView):
                 "success": False,
                 "error": "teacherId와 date는 필수입니다."
             }, status=status.HTTP_400_BAD_REQUEST)
+
+        # 캐시 키 생성: 교사 ID + 날짜
+        cache_key = f"counselings:available_times:{teacher_id}:date:{date_str}"
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return Response({"success": True, "data": cached_data}, status=status.HTTP_200_OK)
 
         try:
             teacher = Teacher.objects.get(id=teacher_id)
@@ -206,14 +266,16 @@ class AvailableCounselingTimesView(APIView):
         booked_times = sorted(time.strftime('%H:%M') for time in booked_qs)
         available_times = [t for t in all_times if t not in booked_times]
 
+        data = {
+            "availableTimes": available_times,
+            "bookedTimes": booked_times
+        }
+
+        # 조회 결과를 캐시에 저장 (5분간 유지)
+        cache.set(cache_key, data, timeout=300)
+
         send_success_slack(request, "예약 가능 시간 조회", start_time)
-        return Response({
-            "success": True,
-            "data": {
-                "availableTimes": available_times,
-                "bookedTimes": booked_times
-            }
-        }, status=status.HTTP_200_OK)
+        return Response({"success": True, "data": data}, status=status.HTTP_200_OK)
 
 
 class CounselingRequestCreateView(APIView):
@@ -224,6 +286,16 @@ class CounselingRequestCreateView(APIView):
         serializer = CounselingRequestSerializer(data=request.data)
         if serializer.is_valid():
             counseling = serializer.save()
+
+            # 상담 생성 시 관련 캐시(학생/교사 리스트, 캘린더, 가용시간 등) 모두 삭제
+            student_id = counseling.student.id
+            teacher_id = counseling.teacher.id
+            cache.delete_pattern(f"counselings:student:{student_id}:*")
+            cache.delete_pattern(f"counselings:teacher_requests:{teacher_id}:*")
+            cache.delete_pattern(f"counselings:teacher_scheduled:{teacher_id}:*")
+            cache.delete_pattern(f"counselings:teacher_calendar:{teacher_id}:*")
+            cache.delete_pattern(f"counselings:available_times:{teacher_id}:*")
+
             send_success_slack(request, "상담 신청 등록", start_time)
             return Response({
                 "success": True,
@@ -236,6 +308,7 @@ class CounselingRequestCreateView(APIView):
             }, status=status.HTTP_201_CREATED)
         send_error_slack(request, "상담 신청 등록", start_time)
         return Response({"success": False, "error": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
 
 class CounselingApproveView(APIView):
     permission_classes = [IsAuthenticated]
@@ -251,6 +324,16 @@ class CounselingApproveView(APIView):
         serializer = CounselingApproveSerializer(counseling, data=request.data, partial=True)
         if serializer.is_valid():
             counseling = serializer.save()
+
+            # 승인(예약확정) 시 관련 캐시 삭제
+            student_id = counseling.student.id
+            teacher_id = counseling.teacher.id
+            cache.delete_pattern(f"counselings:student:{student_id}:*")
+            cache.delete_pattern(f"counselings:teacher_requests:{teacher_id}:*")
+            cache.delete_pattern(f"counselings:teacher_scheduled:{teacher_id}:*")
+            cache.delete_pattern(f"counselings:teacher_calendar:{teacher_id}:*")
+            cache.delete_pattern(f"counselings:available_times:{teacher_id}:*")
+
             send_success_slack(request, "상담 신청 승인", start_time)
             return Response({
                 "success": True,
@@ -261,9 +344,10 @@ class CounselingApproveView(APIView):
                     "message": "상담 신청이 승인되었습니다."
                 }
             })
-        
+
         send_error_slack(request, "상담 신청 승인", start_time)
         return Response({"success": False, "error": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
 
 class CounselingUpdateCancelView(APIView):
     permission_classes = [IsAuthenticated]
@@ -282,9 +366,20 @@ class CounselingUpdateCancelView(APIView):
                 }
             }, status=status.HTTP_404_NOT_FOUND)
 
+        old_student_id = counseling.student.id
+        old_teacher_id = counseling.teacher.id
+
         serializer = CounselingUpdateSerializer(counseling, data=request.data, partial=True)
         if serializer.is_valid():
-            serializer.save()
+            counseling = serializer.save()
+
+            # 상담 정보 수정 시 관련 캐시 모두 삭제
+            cache.delete_pattern(f"counselings:student:{old_student_id}:*")
+            cache.delete_pattern(f"counselings:teacher_requests:{old_teacher_id}:*")
+            cache.delete_pattern(f"counselings:teacher_scheduled:{old_teacher_id}:*")
+            cache.delete_pattern(f"counselings:teacher_calendar:{old_teacher_id}:*")
+            cache.delete_pattern(f"counselings:available_times:{old_teacher_id}:*")
+
             send_success_slack(request, "상담 정보 수정", start_time)
             return Response({
                 "success": True,
@@ -324,7 +419,17 @@ class CounselingUpdateCancelView(APIView):
                 }
             }, status=status.HTTP_400_BAD_REQUEST)
 
+        student_id = counseling.student.id
+        teacher_id = counseling.teacher.id
         counseling.delete()
+
+        # 삭제 후 관련 캐시 삭제
+        cache.delete_pattern(f"counselings:student:{student_id}:*")
+        cache.delete_pattern(f"counselings:teacher_requests:{teacher_id}:*")
+        cache.delete_pattern(f"counselings:teacher_scheduled:{teacher_id}:*")
+        cache.delete_pattern(f"counselings:teacher_calendar:{teacher_id}:*")
+        cache.delete_pattern(f"counselings:available_times:{teacher_id}:*")
+
         send_success_slack(request, "상담 예약 취소", start_time)
         return Response({
             "success": True,

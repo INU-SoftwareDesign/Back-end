@@ -1,3 +1,5 @@
+# grades/views.py
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -10,6 +12,7 @@ from datetime import datetime
 from rest_framework.permissions import IsAuthenticated
 from utils.slack import send_success_slack, send_error_slack
 from datetime import datetime
+from django.core.cache import cache  # ← 캐시 사용을 위해 import 추가
 
 
 class GradeManagementStatusView(APIView):
@@ -21,6 +24,12 @@ class GradeManagementStatusView(APIView):
             grade = request.query_params.get("grade")
             class_ = request.query_params.get("class")
             semester = request.query_params.get("semester")
+
+            # 캐시 키 생성: grade, class_, semester 값 조합
+            cache_key = f"grades:management_status:grade:{grade or 'all'}:class:{class_ or 'all'}:semester:{semester or 'all'}"
+            cached_payload = cache.get(cache_key)
+            if cached_payload is not None:
+                return Response(cached_payload)
 
             students = Student.objects.all()
             if grade:
@@ -38,17 +47,24 @@ class GradeManagementStatusView(APIView):
                 result.append(student)
 
             serializer = GradeStudentStatusSerializer(result, many=True)
-            send_success_slack(request, "성적 목록 조회", start_time)
-            return Response({
+            students_data = serializer.data
+
+            payload = {
                 "semesterPeriod": {
                     "start": "2025-05-01",
                     "end": "2025-06-16"
                 },
-                "students": serializer.data
-            })
+                "students": students_data
+            }
+            # 조회 결과를 캐시에 저장 (5분 동안 유지)
+            cache.set(cache_key, payload, timeout=300)
+
+            send_success_slack(request, "성적 목록 조회", start_time)
+            return Response(payload)
         except Exception as e:
             send_error_slack(request, "성적 목록 조회", start_time, error=e)
             return Response({"error": str(e)}, status=500)
+
 
 class GradeUpdateView(APIView):
     permission_classes = [IsAuthenticated]
@@ -77,9 +93,16 @@ class GradeUpdateView(APIView):
                         performance=item['performance'],
                         total_score=item['totalScore']
                     )
+
+                # 성적 등록 후 캐시 무효화:
+                # - GradeManagementStatusView 캐시 전부 삭제
+                cache.delete_pattern("grades:management_status:*")
+                # - 해당 학생의 GradeOverviewView 캐시 삭제
+                cache.delete_pattern(f"grades:overview:{student_id}:*")
+
                 send_success_slack(request, "성적 등록", start_time)
                 return Response({"message": "Grades submitted successfully"}, status=200)
-            send_error_slack(request, "성적 등록", start_time, error=e)
+            send_error_slack(request, "성적 등록", start_time, error=Exception("Invalid subject format or missing fields"))
             return Response({"error": "Invalid subject format or missing fields"}, status=400)
         except Exception as e:
             send_error_slack(request, "성적 등록", start_time, error=e)
@@ -91,13 +114,13 @@ class GradeUpdateView(APIView):
             student = get_object_or_404(Student, id=student_id)
             serializer = GradeInputSerializer(data=request.data, partial=True)
             if not serializer.is_valid():
-                send_error_slack(request, "성적 수정", start_time, error=e)
+                send_error_slack(request, "성적 수정", start_time, error=Exception("Invalid input"))
                 return Response({"error": "Invalid input"}, status=400)
-            
+
             data = serializer.validated_data
             grade_group = GradeGroup.objects.filter(student=student).order_by('-updated_at').first()
             if not grade_group:
-                send_error_slack(request, "성적 수정", start_time, error=e)
+                send_error_slack(request, "성적 수정", start_time, error=Exception("성적 정보가 없습니다."))
                 return Response({"error": "성적 정보가 없습니다."}, status=404)
 
             if 'gradeStatus' in data:
@@ -123,6 +146,10 @@ class GradeUpdateView(APIView):
                     grade.total_score = item.get('totalScore', grade.total_score)
                     grade.save()
 
+            # 성적 수정 후 캐시 무효화:
+            cache.delete_pattern("grades:management_status:*")
+            cache.delete_pattern(f"grades:overview:{student_id}:*")
+
             send_success_slack(request, "성적 수정", start_time)
             return Response({"message": "Grades patched successfully"}, status=200)
         except Exception as e:
@@ -134,30 +161,34 @@ class GradeUpdateView(APIView):
         subject = get_object_or_404(Subject, name=name)
         return subject.id
 
-from utils.slack import send_success_slack, send_error_slack
-from datetime import datetime
 
 class GradeOverviewView(APIView):
     permission_classes = [IsAuthenticated]
-    
+
     def get(self, request, student_id):
         start_time = datetime.now()
         try:
             grade = request.query_params.get("grade")
             semester = request.query_params.get("semester")
 
+            # 캐시 키 생성: 학생 ID + grade + semester
+            cache_key = f"grades:overview:{student_id}:grade:{grade or 'all'}:semester:{semester or 'all'}"
+            cached_data = cache.get(cache_key)
+            if cached_data is not None:
+                return Response(cached_data)
+
             student = get_object_or_404(Student, id=student_id)
             group_qs = GradeGroup.objects.filter(student=student)
             if grade:
-                grade = f"{grade}학년" if '학년' not in grade else grade
-                group_qs = group_qs.filter(grade=grade)
+                grade_val = f"{grade}학년" if '학년' not in grade else grade
+                group_qs = group_qs.filter(grade=grade_val)
             if semester:
-                semester = f"{semester}학기" if '학기' not in semester else semester
-                group_qs = group_qs.filter(semester=semester)
+                semester_val = f"{semester}학기" if '학기' not in semester else semester
+                group_qs = group_qs.filter(semester=semester_val)
 
             grade_group = group_qs.order_by('-updated_at').first()
             if not grade_group:
-                send_error_slack(request, "성적 상세 조회", start_time, error=e)
+                send_error_slack(request, "성적 상세 조회", start_time, error=Exception("성적 정보가 없습니다."))
                 return Response({"error": "성적 정보가 없습니다."}, status=404)
 
             grades = grade_group.grades.select_related('subject')
@@ -166,15 +197,15 @@ class GradeOverviewView(APIView):
             weighted_total_score = 0
             weighted_grade_sum = 0
 
-            for grade in grades:
-                subject_name = grade.subject.name
-                credits = grade.credits
-                total_score = grade.total_score
+            for grade_obj in grades:
+                subject_name = grade_obj.subject.name
+                credits = grade_obj.credits
+                total_score = grade_obj.total_score
 
                 all_scores = list(Grade.objects.filter(
                     grade_group__semester=grade_group.semester,
                     grade_group__grade=grade_group.grade,
-                    subject=grade.subject
+                    subject=grade_obj.subject
                 ).values_list('total_score', flat=True))
 
                 all_scores.sort(reverse=True)
@@ -203,9 +234,9 @@ class GradeOverviewView(APIView):
                 subject_results.append({
                     "name": subject_name,
                     "credits": credits,
-                    "midterm": grade.midterm,
-                    "final": grade.final,
-                    "performance": grade.performance,
+                    "midterm": grade_obj.midterm,
+                    "final": grade_obj.final,
+                    "performance": grade_obj.performance,
                     "totalScore": total_score,
                     "rank": f"{rank}/{len(all_scores)}",
                     "gradeLevel": grade_level
@@ -236,11 +267,10 @@ class GradeOverviewView(APIView):
             all_totals.sort(reverse=True)
             my_rank = next((i + 1 for i, score in enumerate(all_totals) if abs(score - sum_total_score) < 1e-6), None)
             if my_rank is None:
-                send_error_slack(request, "성적 상세 조회", start_time, error=e)
+                send_error_slack(request, "성적 상세 조회", start_time, error=Exception("등수를 계산할 수 없습니다."))
                 return Response({"error": "등수를 계산할 수 없습니다."}, status=500)
 
-            send_success_slack(request, "성적 상세 조회", start_time)
-            return Response({
+            payload = {
                 "studentId": student.student_id,
                 "studentName": student.user.name,
                 "grade": student.classroom.grade if student.classroom else None,
@@ -263,7 +293,13 @@ class GradeOverviewView(APIView):
                     "labels": [s["name"] for s in subject_results],
                     "data": [s["totalScore"] for s in subject_results]
                 }
-            })
+            }
+
+            # 조회 결과를 캐시에 저장 (5분 동안 유지)
+            cache.set(cache_key, payload, timeout=300)
+
+            send_success_slack(request, "성적 상세 조회", start_time)
+            return Response(payload)
         except Exception as e:
             send_error_slack(request, "성적 상세 조회", start_time, error=e)
             return Response({"error": str(e)}, status=500)

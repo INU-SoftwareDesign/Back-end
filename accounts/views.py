@@ -1,3 +1,5 @@
+# accounts/views.py
+
 from rest_framework import generics
 from .models import User
 from .serializers import UserSerializer
@@ -18,8 +20,10 @@ from django.db import transaction
 from utils.social import get_user_info
 from utils.slack import send_success_slack, send_error_slack
 from datetime import datetime
+from django.core.cache import cache
 
 User = get_user_model()
+
 
 class SignUpView(APIView):
     @transaction.atomic
@@ -91,6 +95,7 @@ class SignUpView(APIView):
             send_error_slack(request, "회원가입", start_time, error=e)
             return Response({"error": str(e)}, status=500)
 
+
 class LoginView(APIView):
     def post(self, request):
         start_time = datetime.now()
@@ -149,6 +154,7 @@ class LoginView(APIView):
             send_error_slack(request, "로그인", start_time, error=e)
             return Response({"error": str(e)}, status=500)
 
+
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -163,6 +169,7 @@ class LogoutView(APIView):
         except Exception as e:
             send_error_slack(request, "로그아웃", start_time, error=e)
             return Response({"error": str(e)}, status=400)
+
 
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]
@@ -194,6 +201,7 @@ class ChangePasswordView(APIView):
             send_error_slack(request, "비밀번호 변경", start_time, error=e)
             return Response({"error": str(e)}, status=500)
 
+
 class UserProfileView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = None
@@ -203,8 +211,16 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
 
     def get(self, request):
         start_time = datetime.now()
+        user = request.user
+        cache_key = f"accounts:user_profile:{user.id}"
+
         try:
-            user = request.user
+            # 1) 캐시에서 프로필 정보 가져오기
+            cached_profile = cache.get(cache_key)
+            if cached_profile is not None:
+                return Response(cached_profile)
+
+            # 2) 캐시 미스 → DB에서 사용자 정보 조회
             data = {
                 "id": user.username,
                 "username": user.username,
@@ -247,6 +263,9 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
                         "relationship": parent_relation.role,
                     })
 
+            # 3) 조회 결과를 캐시에 저장 (예: 5분 동안)
+            cache.set(cache_key, data, timeout=300)
+
             send_success_slack(request, "유저 정보 조회", start_time)
             return Response(data)
 
@@ -256,19 +275,26 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
 
     def put(self, request):
         start_time = datetime.now()
+        user = request.user
+        cache_key = f"accounts:user_profile:{user.id}"
+
         try:
-            user = request.user
             allowed_fields = ['name', 'email', 'phone', 'birth_date', 'address']
             for field in allowed_fields:
                 if field in request.data:
                     setattr(user, field, request.data[field])
             user.save()
+
+            # 1) 프로필 수정 시 캐시 무효화
+            cache.delete(cache_key)
+
             send_success_slack(request, "유저 정보 수정", start_time)
             return Response({"message": "profile updated successfully"})
         except Exception as e:
             send_error_slack(request, "유저 정보 수정", start_time, error=e)
             return Response({"error": str(e)}, status=500)
-    
+
+
 class SocialLoginView(APIView):
     def post(self, request):
         start_time = datetime.now()
@@ -354,7 +380,7 @@ class SocialLoginView(APIView):
             }, status=200)
 
         except Exception as e:
-            send_error_slack(request, "소셜 로그인", start_time)
+            send_error_slack(request, "소셜 로그인", start_time, error=e)
             return Response({"error": str(e)}, status=500, error=e)
 
 
