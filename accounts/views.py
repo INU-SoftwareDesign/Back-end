@@ -88,7 +88,7 @@ class SignUpView(APIView):
             return Response({"message": "User registered successfully", "userId": user.username}, status=201)
 
         except Exception as e:
-            send_error_slack(request, "회원가입", start_time)
+            send_error_slack(request, "회원가입", start_time, error=e)
             return Response({"error": str(e)}, status=500)
 
 class LoginView(APIView):
@@ -146,7 +146,7 @@ class LoginView(APIView):
             }, status=200)
 
         except Exception as e:
-            send_error_slack(request, "로그인", start_time)
+            send_error_slack(request, "로그인", start_time, error=e)
             return Response({"error": str(e)}, status=500)
 
 class LogoutView(APIView):
@@ -161,7 +161,7 @@ class LogoutView(APIView):
             send_success_slack(request, "로그아웃", start_time)
             return Response({"message": "Successfully logged out"}, status=200)
         except Exception as e:
-            send_error_slack(request, "로그아웃", start_time)
+            send_error_slack(request, "로그아웃", start_time, error=e)
             return Response({"error": str(e)}, status=400)
 
 class ChangePasswordView(APIView):
@@ -191,7 +191,7 @@ class ChangePasswordView(APIView):
             return Response({"message": "Password changed successfully"}, status=200)
 
         except Exception as e:
-            send_error_slack(request, "비밀번호 변경", start_time)
+            send_error_slack(request, "비밀번호 변경", start_time, error=e)
             return Response({"error": str(e)}, status=500)
 
 class UserProfileView(generics.RetrieveUpdateAPIView):
@@ -251,7 +251,7 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
             return Response(data)
 
         except Exception as e:
-            send_error_slack(request, "유저 정보 조회", start_time)
+            send_error_slack(request, "유저 정보 조회", start_time, error=e)
             return Response({"error": str(e)}, status=500)
 
     def put(self, request):
@@ -266,7 +266,7 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
             send_success_slack(request, "유저 정보 수정", start_time)
             return Response({"message": "profile updated successfully"})
         except Exception as e:
-            send_error_slack(request, "유저 정보 수정", start_time)
+            send_error_slack(request, "유저 정보 수정", start_time, error=e)
             return Response({"error": str(e)}, status=500)
     
 class SocialLoginView(APIView):
@@ -281,7 +281,7 @@ class SocialLoginView(APIView):
         try:
             user_info = get_user_info(provider, access_token)
         except Exception as e:
-            send_error_slack(request, "소셜 로그인", start_time)
+            send_error_slack(request, "소셜 로그인", start_time, error=e)
             return Response({"error": f"{provider} 사용자 정보 조회 실패: {str(e)}"}, status=400)
 
         try:
@@ -355,7 +355,7 @@ class SocialLoginView(APIView):
 
         except Exception as e:
             send_error_slack(request, "소셜 로그인", start_time)
-            return Response({"error": str(e)}, status=500)
+            return Response({"error": str(e)}, status=500, error=e)
 
 
 class SocialRegisterDetailView(APIView):
@@ -371,11 +371,11 @@ class SocialRegisterDetailView(APIView):
         try:
             user = User.objects.get(username=user_id)
         except User.DoesNotExist:
-            send_error_slack(request, "소셜 회원 추가 정보 등록", start_time)
+            send_error_slack(request, "소셜 회원 추가 정보 등록", start_time, error=e)
             return Response({"error": "사용자를 찾을 수 없습니다."}, status=404)
 
         if user.is_active:
-            send_error_slack(request, "소셜 회원 추가 정보 등록", start_time)
+            send_error_slack(request, "소셜 회원 추가 정보 등록", start_time, error=e)
             return Response({"error": "이미 활성화된 사용자입니다."}, status=400)
 
         user.role = role
@@ -391,7 +391,7 @@ class SocialRegisterDetailView(APIView):
                     grade=data.get("grade"), class_number=data.get("classNumber")
                 ).first()
                 if not classroom:
-                    send_error_slack(request, "소셜 회원 추가 정보 등록", start_time)
+                    send_error_slack(request, "소셜 회원 추가 정보 등록", start_time, error=e)
                     return Response({"error": "해당 반이 존재하지 않습니다."}, status=400)
 
                 student = Student.objects.create(
@@ -434,12 +434,12 @@ class SocialRegisterDetailView(APIView):
                         role="father" if data["relationship"] == "아버지" else "mother"
                     )
                 else:
-                    send_error_slack(request, "소셜 회원 추가 정보 등록", start_time)
+                    send_error_slack(request, "소셜 회원 추가 정보 등록", start_time, error=e)
                     return Response({"error": "해당 학생을 찾을 수 없습니다."}, status=404)
 
             send_success_slack(request, "소셜 회원 추가 정보 등록", start_time)
             return Response({"message": "추가 정보 등록 완료. 관리자 승인을 기다려주세요."}, status=201)
 
         except Exception as e:
-            send_error_slack(request, "소셜 회원 추가 정보 등록", start_time)
+            send_error_slack(request, "소셜 회원 추가 정보 등록", start_time, error=e)
             return Response({"error": str(e)}, status=500)
