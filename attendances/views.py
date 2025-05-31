@@ -1,3 +1,5 @@
+# attendances/views.py
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -10,6 +12,7 @@ from collections import defaultdict
 from rest_framework.permissions import IsAuthenticated
 from utils.slack import send_success_slack, send_error_slack
 from datetime import datetime
+from django.core.cache import cache
 
 class AttendanceView(APIView):
     permission_classes = [IsAuthenticated]
@@ -19,6 +22,12 @@ class AttendanceView(APIView):
         try:
             grade = request.GET.get("grade")
             year = request.GET.get("year")
+
+            # 캐시 키 생성: student_id, grade, year 조합을 사용
+            cache_key = f"attendance:{student_id}:{grade or 'all'}:{year or 'all'}"
+            cached_data = cache.get(cache_key)
+            if cached_data is not None:
+                return Response(cached_data)
 
             student = get_object_or_404(Student, id=student_id)
             summaries = AttendanceSummary.objects.filter(student=student)
@@ -63,8 +72,13 @@ class AttendanceView(APIView):
             }
 
             serializer = AttendanceListResponseSerializer(res)
+            response_data = serializer.data
+
+            # 조회 결과를 캐시에 저장 (5분 동안)
+            cache.set(cache_key, response_data, timeout=300)
+
             send_success_slack(request, "출결 조회", start_time)
-            return Response(serializer.data)
+            return Response(response_data)
 
         except Exception as e:
             send_error_slack(request, "출결 조회", start_time, error=e)
@@ -96,6 +110,10 @@ class AttendanceView(APIView):
                 date=data["date"],
                 reason=data.get("reason", "")
             )
+
+            # 출결 정보가 변경되었으므로 해당 학생의 모든 캐시 키 삭제
+            cache.delete_pattern(f"attendance:{student_id}:*")
+
             send_success_slack(request, "출결 등록", start_time)
             return Response({"message": "Attendance record added successfully"}, status=201)
 
@@ -119,10 +137,12 @@ class AttendanceView(APIView):
             ).delete()
 
             if deleted:
+                # 삭제 후 해당 학생의 캐시 키 전부 삭제
+                cache.delete_pattern(f"attendance:{student_id}:*")
                 send_success_slack(request, "출결 삭제", start_time)
                 return Response({"message": "Attendance record deleted successfully"}, status=200)
             else:
-                send_error_slack(request, "출결 삭제", start_time, error=e)
+                send_error_slack(request, "출결 삭제", start_time, error=Exception("Record not found"))
                 return Response({"message": "Attendance record not found"}, status=404)
 
         except Exception as e:

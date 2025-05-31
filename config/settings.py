@@ -177,4 +177,17 @@ CORS_ALLOWED_ORIGINS = [
      "http://localhost:3000",
      "http://52.73.19.160:3000",
 ]
-#Add corsheaders
+
+# 환경 변수 REDIS_URL을 읽어오되, 없으면 기본값으로 로컬 Redis(127.0.0.1:6379 DB1)를 사용합니다.
+REDIS_URL = os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/1")
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": REDIS_URL,
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+        "KEY_PREFIX": "student_mgmt",
+    }
+}
