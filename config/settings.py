@@ -164,6 +164,11 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
 ]
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://api-dev.소설고등학교.site",
+    "https://api-dev.xn--299a9h35r4sn3oar46g.site",  # punycode 도메인
+]
+
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
