@@ -22,9 +22,10 @@ class FeedbackNestedSerializer(serializers.ModelSerializer):
 class FeedbackGroupSerializer(serializers.ModelSerializer):
     """
     FeedbackGroup을 스펙에 맞춰 출력
+    - studentId는 Student.student_id (학번)으로 변경
     """
     id = serializers.IntegerField()  # FeedbackGroup PK
-    studentId = serializers.IntegerField(source="student.id")
+    studentId = serializers.CharField(source="student.student_id")  # 학번으로 변경
     grade = serializers.CharField()
     classNumber = serializers.CharField(source="class_number")
     teacherId = serializers.IntegerField(source="teacher.id")
@@ -57,7 +58,11 @@ class FeedbackCreateNestedSerializer(serializers.Serializer):
 
 
 class CreateFeedbackSerializer(serializers.Serializer):
-    studentId = serializers.IntegerField()
+    """
+    새로운 FeedbackGroup(학년·반별 묶음)과 Feedback 항목들을 생성할 때 사용
+    - studentId: Student.student_id (학번, 문자열) 로 받도록 변경
+    """
+    studentId = serializers.CharField()       # 학번(문자열)으로 수정
     grade = serializers.CharField()
     classNumber = serializers.CharField()
     teacherId = serializers.IntegerField()
@@ -65,13 +70,19 @@ class CreateFeedbackSerializer(serializers.Serializer):
     feedbacks = FeedbackCreateNestedSerializer(many=True)
 
     def validate_studentId(self, value):
+        """
+        studentId → Student.student_id(학번)으로 조회
+        """
         try:
-            student = Student.objects.get(id=value)
+            student = Student.objects.get(student_id=value)
         except Student.DoesNotExist:
             raise serializers.ValidationError("학생을 찾을 수 없습니다.")
         return student
 
     def validate_teacherId(self, value):
+        """
+        teacherId → Teacher PK(id)로 조회
+        """
         try:
             teacher = Teacher.objects.get(id=value)
         except Teacher.DoesNotExist:
@@ -79,6 +90,9 @@ class CreateFeedbackSerializer(serializers.Serializer):
         return teacher
 
     def validate(self, data):
+        """
+        teacherName이 실제 교사 이름(teacher.user.name)과 일치하는지 검증
+        """
         teacher = data.get("teacherId")
         teacher_name_input = data.get("teacherName")
         actual_name = teacher.user.name
@@ -90,13 +104,15 @@ class CreateFeedbackSerializer(serializers.Serializer):
 
     @transaction.atomic
     def create(self, validated_data):
+        """
+        검증된 데이터로 FeedbackGroup 및 Feedback 항목 생성
+        """
         # 1) student, grade, classNumber, teacher 객체 꺼내기
-        student = validated_data.pop("studentId")     # 실제 Student 인스턴스
+        student = validated_data.pop("studentId")       # 실제 Student 인스턴스 (학번으로 조회됨)
         grade = validated_data.pop("grade")
         class_number = validated_data.pop("classNumber")
-        teacher = validated_data.pop("teacherId")     # 실제 Teacher 인스턴스
-        # teacherName는 이미 validate()에서 검증했으므로 더 이상 사용하지 않음
-        validated_data.pop("teacherName")
+        teacher = validated_data.pop("teacherId")       # 실제 Teacher 인스턴스
+        validated_data.pop("teacherName")                # teacherName 검증 후 사용 안 함
 
         # 2) 동일 조합의 FeedbackGroup이 이미 있는지 조회 (최신 순으로 하나만 선택)
         existing_groups = FeedbackGroup.objects.filter(

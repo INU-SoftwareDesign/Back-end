@@ -1,3 +1,5 @@
+# feedbacks/views.py
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -11,6 +13,8 @@ from .serializers import (
     FeedbackGroupSerializer,
     CreateFeedbackSerializer,
 )
+from utils.slack import send_success_slack, send_error_slack
+from datetime import datetime
 
 
 class StudentFeedbackListView(APIView):
@@ -20,18 +24,26 @@ class StudentFeedbackListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, student_id):
+        start_time = datetime.now()
         try:
-            # student_id: Student PK (정수)
-            student = Student.objects.get(id=student_id)
+            # student_id: 학번(Student.student_id)
+            student = Student.objects.get(student_id=student_id)
         except Student.DoesNotExist:
+            send_error_slack(request, "피드백 조회", start_time, error=Exception("학생을 찾을 수 없습니다."))
             return Response(
                 {"success": False, "message": "학생을 찾을 수 없습니다."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        groups = FeedbackGroup.objects.filter(student=student).order_by("grade", "class_number")
-        serializer = FeedbackGroupSerializer(groups, many=True)
-        return Response({"success": True, "data": serializer.data}, status=status.HTTP_200_OK)
+        try:
+            groups = FeedbackGroup.objects.filter(student=student).order_by("grade", "class_number")
+            serializer = FeedbackGroupSerializer(groups, many=True)
+            send_success_slack(request, "피드백 조회", start_time)
+            return Response({"success": True, "data": serializer.data}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            send_error_slack(request, "피드백 조회", start_time, error=e)
+            return Response({"success": False, "error": {"code": "SERVER_ERROR", "message": "서버 오류가 발생했습니다."}}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class FeedbackCreateView(APIView):
@@ -42,34 +54,41 @@ class FeedbackCreateView(APIView):
 
     @transaction.atomic
     def post(self, request):
-        serializer = CreateFeedbackSerializer(data=request.data)
-        if not serializer.is_valid():
-            # 유효성 검사 실패 시, 필드별 에러 반환
-            errors = []
-            for field, msgs in serializer.errors.items():
-                if isinstance(msgs, dict):
-                    for subfield, submsgs in msgs.items():
-                        for msg in submsgs:
-                            errors.append({"field": subfield, "message": str(msg)})
-                else:
-                    for msg in msgs:
-                        errors.append({"field": field, "message": str(msg)})
+        start_time = datetime.now()
+        try:
+            serializer = CreateFeedbackSerializer(data=request.data)
+            if not serializer.is_valid():
+                errors = []
+                for field, msgs in serializer.errors.items():
+                    if isinstance(msgs, dict):
+                        for subfield, submsgs in msgs.items():
+                            for msg in submsgs:
+                                errors.append({"field": subfield, "message": str(msg)})
+                    else:
+                        for msg in msgs:
+                            errors.append({"field": field, "message": str(msg)})
 
+                send_error_slack(request, "피드백 생성", start_time, error=Exception("필수 필드 누락 또는 잘못됨"))
+                return Response(
+                    {
+                        "success": False,
+                        "message": "필수 필드가 누락되었거나 잘못되었습니다.",
+                        "errors": errors,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            group = serializer.save()
+            output_serializer = FeedbackGroupSerializer(group)
+            send_success_slack(request, "피드백 생성", start_time)
             return Response(
-                {
-                    "success": False,
-                    "message": "필수 필드가 누락되었거나 잘못되었습니다.",
-                    "errors": errors,
-                },
-                status=status.HTTP_400_BAD_REQUEST,
+                {"success": True, "data": output_serializer.data},
+                status=status.HTTP_201_CREATED,
             )
 
-        group = serializer.save()
-        output_serializer = FeedbackGroupSerializer(group)
-        return Response(
-            {"success": True, "data": output_serializer.data},
-            status=status.HTTP_201_CREATED,
-        )
+        except Exception as e:
+            send_error_slack(request, "피드백 생성", start_time, error=e)
+            return Response({"success": False, "error": {"code": "SERVER_ERROR", "message": "서버 오류가 발생했습니다."}}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class FeedbackDetailView(APIView):
@@ -80,63 +99,77 @@ class FeedbackDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def patch(self, request, feedback_id):
+        start_time = datetime.now()
         try:
             feedback = Feedback.objects.get(id=feedback_id)
         except Feedback.DoesNotExist:
+            send_error_slack(request, "피드백 수정", start_time, error=Exception("피드백을 찾을 수 없습니다."))
             return Response(
                 {"success": False, "message": "피드백을 찾을 수 없습니다."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        content = request.data.get("content")
-        updated_at = request.data.get("updatedAt")
-        if content is None or str(content).strip() == "":
-            return Response(
-                {
-                    "success": False,
-                    "message": "필수 필드가 누락되었습니다.",
-                    "errors": [
-                        {"field": "content", "message": "피드백 내용은 필수입니다."}
-                    ],
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        try:
+            content = request.data.get("content")
+            updated_at = request.data.get("updatedAt")
+            if content is None or str(content).strip() == "":
+                send_error_slack(request, "피드백 수정", start_time, error=Exception("content 필수 누락"))
+                return Response(
+                    {
+                        "success": False,
+                        "message": "필수 필드가 누락되었습니다.",
+                        "errors": [
+                            {"field": "content", "message": "피드백 내용은 필수입니다."}
+                        ],
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-        # 1) 개별 Feedback의 content와 updated_at 반영
-        if updated_at:
-            try:
-                feedback.updated_at = updated_at
-            except Exception:
-                pass
+            if updated_at:
+                try:
+                    feedback.updated_at = updated_at
+                except Exception:
+                    pass
 
-        feedback.content = content
-        feedback.save()
+            feedback.content = content
+            feedback.save()
 
-        # 2) 피드백 그룹의 updated_at도 함께 갱신
-        group = feedback.feedback_group
-        group.save()
+            # 피드백 그룹의 updated_at도 갱신
+            group = feedback.feedback_group
+            group.save()
 
-        # 3) 그룹 전체를 직렬화하여 반환
-        serializer = FeedbackGroupSerializer(group)
-        return Response({"success": True, "data": serializer.data}, status=status.HTTP_200_OK)
+            serializer = FeedbackGroupSerializer(group)
+            send_success_slack(request, "피드백 수정", start_time)
+            return Response({"success": True, "data": serializer.data}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            send_error_slack(request, "피드백 수정", start_time, error=e)
+            return Response({"success": False, "error": {"code": "SERVER_ERROR", "message": "서버 오류가 발생했습니다."}}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def delete(self, request, feedback_id):
+        start_time = datetime.now()
         try:
             feedback = Feedback.objects.get(id=feedback_id)
         except Feedback.DoesNotExist:
+            send_error_slack(request, "피드백 삭제", start_time, error=Exception("피드백을 찾을 수 없습니다."))
             return Response(
                 {"success": False, "message": "피드백을 찾을 수 없습니다."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        group = feedback.feedback_group
-        feedback.delete()
+        try:
+            group = feedback.feedback_group
+            feedback.delete()
 
-        # 해당 그룹에 남아있는 피드백이 없으면 그룹도 삭제
-        if not group.feedbacks.exists():
-            group.delete()
+            if not group.feedbacks.exists():
+                group.delete()
 
-        return Response(
-            {"success": True, "message": "피드백이 성공적으로 삭제되었습니다."},
-            status=status.HTTP_200_OK,
-        )
+            send_success_slack(request, "피드백 삭제", start_time)
+            return Response(
+                {"success": True, "message": "피드백이 성공적으로 삭제되었습니다."},
+                status=status.HTTP_200_OK,
+            )
+
+        except Exception as e:
+            send_error_slack(request, "피드백 삭제", start_time, error=e)
+            return Response({"success": False, "error": {"code": "SERVER_ERROR", "message": "서버 오류가 발생했습니다."}}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
