@@ -162,7 +162,14 @@ NAVER_CALLBACK_URL   = os.environ.get("NAVER_CALLBACK_URL")
 SLACK_WEBHOOK_URL    = os.environ.get("SLACK_WEBHOOK_URL")
 
 CORS_ALLOWED_ORIGINS = [
-    "https://www.소설고등학교.site"
+    "https://www.소설고등학교.site",
+    "https://dev.소설고등학교.site",
+    "http://localhost:3000",
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://api-dev.소설고등학교.site",
+    "https://api-dev.xn--299a9h35r4sn3oar46g.site",  # punycode 도메인
 ]
 
 CORS_ALLOW_CREDENTIALS = True
