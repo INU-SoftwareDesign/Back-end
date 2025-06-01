@@ -4,7 +4,6 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from django.shortcuts import get_object_or_404
 from django.db import transaction
 from datetime import datetime
 
@@ -14,7 +13,7 @@ from .serializers import (
     SpecialNoteCreateSerializer,
     SpecialNoteUpdateSerializer,
 )
-from students.models import Student
+from students.models import Student  # get_object_or_404 대신 직접 get 사용
 from teachers.models import Teacher
 from utils.slack import send_success_slack, send_error_slack
 from django.core.cache import cache  # ← 캐시 사용을 위해 import 추가
@@ -25,9 +24,19 @@ class StudentSpecialNoteListView(APIView):
 
     def get(self, request, student_id):
         start_time = datetime.now()
-        try:
-            student = get_object_or_404(Student, student_id=student_id)
 
+        # 1) 학생 존재 여부 확인하여 404 처리
+        try:
+            student = Student.objects.get(student_id=student_id)
+        except Student.DoesNotExist:
+            send_error_slack(request, "특기사항 조회", start_time, error=Exception("학생을 찾을 수 없습니다."))
+            return Response(
+                {"success": False, "message": "학생을 찾을 수 없습니다."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # 2) 실제 조회 로직
+        try:
             # 캐시 키 생성: 학생 학번(student_id)을 사용
             cache_key = f"specialnotes:student:{student_id}"
             cached_data = cache.get(cache_key)
@@ -106,7 +115,15 @@ class SpecialNoteDetailView(APIView):
     def patch(self, request, note_id):
         start_time = datetime.now()
         try:
-            note_obj = get_object_or_404(SpecialNote, id=note_id)
+            note_obj = SpecialNote.objects.get(id=note_id)
+        except SpecialNote.DoesNotExist:
+            send_error_slack(request, "특기사항 수정", start_time, error=Exception("특기사항을 찾을 수 없습니다."))
+            return Response(
+                {"success": False, "message": "특기사항을 찾을 수 없습니다."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
             serializer = SpecialNoteUpdateSerializer(data=request.data)
             if not serializer.is_valid():
                 errors = []
@@ -151,7 +168,15 @@ class SpecialNoteDetailView(APIView):
     def delete(self, request, note_id):
         start_time = datetime.now()
         try:
-            note_obj = get_object_or_404(SpecialNote, id=note_id)
+            note_obj = SpecialNote.objects.get(id=note_id)
+        except SpecialNote.DoesNotExist:
+            send_error_slack(request, "특기사항 삭제", start_time, error=Exception("특기사항을 찾을 수 없습니다."))
+            return Response(
+                {"success": False, "message": "특기사항을 찾을 수 없습니다."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
             # 삭제 전 학생 학번 저장
             student_id_str = note_obj.student.student_id
             note_obj.delete()
