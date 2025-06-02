@@ -7,13 +7,15 @@ pipeline {
     }
 
     stages {
-        stage('Slack Notify Start') {
+        stage('Notify Start') {
             steps {
-                sh """
-                curl -X POST -H 'Content-type: application/json' \
-                --data '{"text":"🚀 [Jenkins] Backend-dev 빌드 시작: #${BUILD_NUMBER}"}' \
-                ${SLACK_WEBHOOK_URL}
-                """
+                withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'SLACK_WEBHOOK')]) {
+                    sh '''
+                        curl -X POST -H 'Content-type: application/json' \
+                        --data '{"text":"🚀 [Jenkins] Frontend-prod 빌드 시작"}' \
+                        $SLACK_WEBHOOK
+                    '''
+                }
             }
         }
 
@@ -91,18 +93,22 @@ pipeline {
 
     post {
         success {
-            sh """
-            curl -X POST -H 'Content-type: application/json' \
-            --data '{"text":"✅ [Jenkins] Backend-dev 빌드 성공: #${BUILD_NUMBER}"}' \
-            ${SLACK_WEBHOOK_URL}
-            """
+            withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'SLACK_WEBHOOK')]) {
+                sh '''
+                    curl -X POST -H 'Content-type: application/json' \
+                    --data '{"text":"✅ [Jenkins] Frontend-prod 빌드 성공"}' \
+                    $SLACK_WEBHOOK
+                '''
+            }
         }
         failure {
-            sh """
-            curl -X POST -H 'Content-type: application/json' \
-            --data '{"text":"❌ [Jenkins] Backend-dev 빌드 실패: #${BUILD_NUMBER}"}' \
-            ${SLACK_WEBHOOK_URL}
-            """
+            withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'SLACK_WEBHOOK')]) {
+                sh '''
+                    curl -X POST -H 'Content-type: application/json' \
+                    --data '{"text":"❌ [Jenkins] Frontend-prod 빌드 실패"}' \
+                    $SLACK_WEBHOOK
+                '''
+            }
         }
         always {
             sh 'docker container prune -f'
