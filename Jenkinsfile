@@ -12,7 +12,7 @@ pipeline {
                 withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'SLACK_WEBHOOK')]) {
                     sh '''
                         curl -X POST -H 'Content-type: application/json' \
-                        --data '{"text":"🚀 [Jenkins] Frontend-prod 빌드 시작"}' \
+                        --data '{"text":"🚀 [Jenkins] Backend-dev 빌드 시작"}' \
                         $SLACK_WEBHOOK
                     '''
                 }
@@ -96,7 +96,7 @@ pipeline {
             withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'SLACK_WEBHOOK')]) {
                 sh '''
                     curl -X POST -H 'Content-type: application/json' \
-                    --data '{"text":"✅ [Jenkins] Frontend-prod 빌드 성공"}' \
+                    --data '{"text":"✅ [Jenkins] Backend-dev 빌드 성공"}' \
                     $SLACK_WEBHOOK
                 '''
             }
@@ -105,7 +105,7 @@ pipeline {
             withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'SLACK_WEBHOOK')]) {
                 sh '''
                     curl -X POST -H 'Content-type: application/json' \
-                    --data '{"text":"❌ [Jenkins] Frontend-prod 빌드 실패"}' \
+                    --data '{"text":"❌ [Jenkins] Backend-dev 빌드 실패"}' \
                     $SLACK_WEBHOOK
                 '''
             }
