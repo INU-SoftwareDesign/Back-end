@@ -3,9 +3,20 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = 'mario322/django-backend-test'
+        SLACK_WEBHOOK_URL = 'https://hooks.slack.com/services/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'
     }
 
     stages {
+        stage('Slack Notify Start') {
+            steps {
+                sh """
+                curl -X POST -H 'Content-type: application/json' \
+                --data '{"text":"🚀 [Jenkins] Backend-dev 빌드 시작: #${BUILD_NUMBER}"}' \
+                ${SLACK_WEBHOOK_URL}
+                """
+            }
+        }
+
         stage('Checkout') {
             steps {
                 checkout scm
@@ -79,6 +90,20 @@ pipeline {
     }
 
     post {
+        success {
+            sh """
+            curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"✅ [Jenkins] Backend-dev 빌드 성공: #${BUILD_NUMBER}"}' \
+            ${SLACK_WEBHOOK_URL}
+            """
+        }
+        failure {
+            sh """
+            curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"❌ [Jenkins] Backend-dev 빌드 실패: #${BUILD_NUMBER}"}' \
+            ${SLACK_WEBHOOK_URL}
+            """
+        }
         always {
             sh 'docker container prune -f'
             sh 'docker rmi $DOCKER_IMAGE:$TAG || true'
