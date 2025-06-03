@@ -174,5 +174,6 @@ CSRF_TRUSTED_ORIGINS = [
     "https://api.xn--299a9h35r4sn3oar46g.site",  # punycode 도메인
 ]
 
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 #Add corsheaders
