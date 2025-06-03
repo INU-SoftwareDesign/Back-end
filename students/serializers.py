@@ -1,7 +1,10 @@
+# serializers.py
+
 from rest_framework import serializers
 from .models import Student, StudentClassHistory, StudentAcademicRecord
 from consultations.models import Counseling
 from parents.models import ParentStudent
+
 
 class StudentListSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source='user.name')
@@ -73,19 +76,25 @@ class StudentDetailSerializer(serializers.ModelSerializer):
     def get_academicRecords(self, obj):
         return [record.description for record in obj.academic_records.all()]
 
+
 class StudentClassHistoryWriteSerializer(serializers.ModelSerializer):
+    # 요청 데이터에서 "classNumber" 값을 받아서 내부 필드 class_number로 매핑
+    classNumber = serializers.IntegerField(source='class_number')
+
     class Meta:
         model = StudentClassHistory
-        fields = ['grade', 'class_number', 'number', 'homeroom_teacher']
+        fields = ['grade', 'classNumber', 'number', 'homeroom_teacher']
+
 
 class StudentAcademicRecordWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = StudentAcademicRecord
         fields = ['description']
 
+
 class StudentUpdateSerializer(serializers.ModelSerializer):
     history = StudentClassHistoryWriteSerializer(many=True)
-    academicRecords = StudentAcademicRecordWriteSerializer(many=True, source='academic_records')
+    academicRecords = serializers.ListField(child=serializers.CharField(), write_only=True)
 
     class Meta:
         model = Student
@@ -93,20 +102,24 @@ class StudentUpdateSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         history_data = validated_data.pop('history', None)
-        academic_data = validated_data.pop('academic_records', None)
+        academic_list = validated_data.pop('academicRecords', None)
 
+        # 1) 기본 Student 필드 업데이트
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
 
+        # 2) history 처리
         if history_data is not None:
             instance.history.all().delete()
             for history in history_data:
+                # history는 {'grade':..., 'class_number':..., 'number':..., 'homeroom_teacher':...}
                 StudentClassHistory.objects.create(student=instance, **history)
 
-        if academic_data is not None:
+        # 3) academic_records 처리
+        if academic_list is not None:
             instance.academic_records.all().delete()
-            for record in academic_data:
-                StudentAcademicRecord.objects.create(student=instance, **record)
+            for desc in academic_list:
+                StudentAcademicRecord.objects.create(student=instance, description=desc)
 
         return instance

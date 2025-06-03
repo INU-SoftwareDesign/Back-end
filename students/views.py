@@ -60,7 +60,12 @@ class StudentDetailView(RetrieveUpdateDestroyAPIView):
     queryset = Student.objects.select_related('user', 'classroom').prefetch_related(
         'history', 'academic_records', 'parentstudent_set__parent__user'
     )
-    serializer_class = StudentDetailSerializer
+
+    # GET: StudentDetailSerializer, PATCH/PUT: StudentUpdateSerializer
+    def get_serializer_class(self):
+        if self.request.method in ["PUT", "PATCH"]:
+            return StudentUpdateSerializer
+        return StudentDetailSerializer
 
     def retrieve(self, request, *args, **kwargs):
         start_time = datetime.now()
@@ -89,7 +94,10 @@ class StudentDetailView(RetrieveUpdateDestroyAPIView):
         start_time = datetime.now()
         try:
             student = self.get_object()
-            response = super().update(request, *args, **kwargs)
+            # StudentUpdateSerializer를 사용해 부분 업데이트 수행
+            serializer = self.get_serializer(student, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
 
             # 캐시 무효화: 상세 조회와 목록 조회
             cache.delete(f"students:detail:{student.id}")
