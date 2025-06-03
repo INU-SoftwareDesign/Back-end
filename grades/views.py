@@ -11,7 +11,6 @@ from django.shortcuts import get_object_or_404
 from datetime import datetime
 from rest_framework.permissions import IsAuthenticated
 from utils.slack import send_success_slack, send_error_slack
-from datetime import datetime
 from django.core.cache import cache  # ← 캐시 사용을 위해 import 추가
 
 
@@ -78,8 +77,8 @@ class GradeUpdateView(APIView):
                 data = serializer.validated_data
                 group = GradeGroup.objects.create(
                     student=student,
-                    grade=data['grade'],
-                    semester=data['semester'],
+                    grade=f"{data['grade']}학년",
+                    semester=f"{data['semester']}학기",
                     grade_status=data['gradeStatus'],
                     updated_at=data['updatedAt']
                 )
@@ -123,6 +122,10 @@ class GradeUpdateView(APIView):
                 send_error_slack(request, "성적 수정", start_time, error=Exception("성적 정보가 없습니다."))
                 return Response({"error": "성적 정보가 없습니다."}, status=404)
 
+            if 'grade' in data:
+                grade_group.grade = f"{data['grade']}학년"
+            if 'semester' in data:
+                grade_group.semester = f"{data['semester']}학기"
             if 'gradeStatus' in data:
                 grade_group.grade_status = data['gradeStatus']
             if 'updatedAt' in data:

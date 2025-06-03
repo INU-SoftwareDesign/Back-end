@@ -12,6 +12,7 @@ from .models import FeedbackGroup, Feedback
 from .serializers import (
     FeedbackGroupSerializer,
     CreateFeedbackSerializer,
+    FeedbackNestedSerializer,
 )
 from utils.slack import send_success_slack, send_error_slack
 from datetime import datetime
@@ -63,7 +64,7 @@ class StudentFeedbackListView(APIView):
 
 class FeedbackCreateView(APIView):
     """
-    2. 피드백 생성 (POST /api/feedbacks/)
+    2. 피드백 생성 (POST /feedbacks/)
     """
     permission_classes = [IsAuthenticated]
 
@@ -116,62 +117,71 @@ class FeedbackCreateView(APIView):
 
 class FeedbackDetailView(APIView):
     """
-    3. 피드백 수정 (PATCH /api/feedbacks/<feedback_id>/)
-    4. 피드백 삭제 (DELETE /api/feedbacks/<feedback_id>/)
+    3. 피드백 그룹 전체 수정 (PATCH /feedbacks/groups/<group_id>/)
+    4. 피드백 삭제 (DELETE /feedbacks/<feedback_id>/)
     """
     permission_classes = [IsAuthenticated]
 
-    def patch(self, request, feedback_id):
+    @transaction.atomic
+    def patch(self, request, group_id):
         start_time = datetime.now()
         try:
-            feedback = Feedback.objects.get(id=feedback_id)
-        except Feedback.DoesNotExist:
-            send_error_slack(request, "피드백 수정", start_time, error=Exception("피드백을 찾을 수 없습니다."))
-            return Response(
-                {"success": False, "message": "피드백을 찾을 수 없습니다."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        try:
-            content = request.data.get("content")
-            updated_at = request.data.get("updatedAt")
-            if content is None or str(content).strip() == "":
-                send_error_slack(request, "피드백 수정", start_time, error=Exception("content 필수 누락"))
+            # 1) 그룹이 실제 존재하는지 확인
+            try:
+                group = FeedbackGroup.objects.get(id=group_id)
+            except FeedbackGroup.DoesNotExist:
+                send_error_slack(request, "피드백 그룹 수정", start_time, error=Exception("피드백 그룹을 찾을 수 없습니다."))
                 return Response(
-                    {
-                        "success": False,
-                        "message": "필수 필드가 누락되었습니다.",
-                        "errors": [
-                            {"field": "content", "message": "피드백 내용은 필수입니다."}
-                        ],
-                    },
+                    {"success": False, "message": "피드백 그룹을 찾을 수 없습니다."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            # 2) 요청 바디에서 feedbacks 배열 추출
+            feedbacks_data = request.data.get("feedbacks")
+            if not isinstance(feedbacks_data, list) or len(feedbacks_data) == 0:
+                send_error_slack(request, "피드백 그룹 수정", start_time, error=Exception("feedbacks 배열이 필요합니다."))
+                return Response(
+                    {"success": False, "message": "feedbacks 배열이 필요합니다."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            if updated_at:
-                try:
-                    feedback.updated_at = updated_at
-                except Exception:
-                    pass
+            # 3) 기존 Feedback들은 모두 삭제
+            group.feedbacks.all().delete()
 
-            feedback.content = content
-            feedback.save()
+            # 4) 새로운 Feedback 항목들을 group에 추가
+            for item in feedbacks_data:
+                category = item.get("category")
+                content = item.get("content")
+                if not category or content is None or str(content).strip() == "":
+                    raise ValueError("각 피드백 항목은 category와 content가 필요합니다.")
+                Feedback.objects.create(
+                    feedback_group=group,
+                    category=category,
+                    content=content
+                )
 
-            # 피드백 그룹의 updated_at도 갱신
-            group = feedback.feedback_group
+            # 5) 그룹(updated_at)을 갱신
             group.save()
 
+            # 6) 수정 후, 전체 그룹 정보를 직렬화해서 반환
             serializer = FeedbackGroupSerializer(group)
+            data = serializer.data
 
-            # 피드백 수정 시 해당 학생 학번을 가져와 캐시 삭제
+            # 7) 해당 학생(student_id)의 캐시 삭제
             student_id = group.student.student_id
             cache.delete(f"feedbacks:student:{student_id}")
 
-            send_success_slack(request, "피드백 수정", start_time)
-            return Response({"success": True, "data": serializer.data}, status=status.HTTP_200_OK)
+            send_success_slack(request, "피드백 그룹 전체 수정", start_time)
+            return Response({"success": True, "data": data}, status=status.HTTP_200_OK)
 
+        except ValueError as ve:
+            send_error_slack(request, "피드백 그룹 수정", start_time, error=ve)
+            return Response(
+                {"success": False, "message": str(ve)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         except Exception as e:
-            send_error_slack(request, "피드백 수정", start_time, error=e)
+            send_error_slack(request, "피드백 그룹 수정", start_time, error=e)
             return Response(
                 {"success": False, "error": {"code": "SERVER_ERROR", "message": "서버 오류가 발생했습니다."}},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
